@@ -3,6 +3,7 @@ import '../../data/services/drive_api_service.dart';
 import '../../data/models/book.dart';
 import 'book_event.dart';
 import 'book_state.dart';
+import '../../core/utils/logger.dart';
 
 class BookBloc extends Bloc<BookEvent, BookState> {
   final DriveApiService driveApiService;
@@ -23,6 +24,7 @@ class BookBloc extends Bloc<BookEvent, BookState> {
       final books = await driveApiService.getFiles();
       emit(BookLoaded(books));
     } catch (e) {
+      logger.e('Failed to load books: $e');
       emit(BookError(e.toString()));
     }
   }
@@ -79,6 +81,7 @@ class BookBloc extends Bloc<BookEvent, BookState> {
       // Return to loaded state with the new book appended
       emit(BookLoaded([...currentBooks, newBook]));
     } catch (e) {
+      logger.e('Failed to upload book: $e');
       emit(BookUploadFailure(e.toString()));
       // Revert to previous loaded state if available, or initial
       if (currentBooks.isNotEmpty) {
@@ -102,6 +105,7 @@ class BookBloc extends Bloc<BookEvent, BookState> {
             .toList();
         emit(BookLoaded(updatedBooks));
       } catch (e) {
+        logger.e('Failed to delete book: $e');
         emit(BookError(e.toString()));
         emit(BookLoaded(currentState.books)); // Revert
       }
@@ -133,6 +137,7 @@ class BookBloc extends Bloc<BookEvent, BookState> {
 
         emit(BookLoaded(updatedBooks));
       } catch (e) {
+        logger.e('Failed to update book: $e');
         emit(BookError(e.toString()));
         emit(BookLoaded(currentState.books)); // Revert
       }

@@ -6,10 +6,12 @@ import 'presentation/bloc/book_bloc.dart';
 import 'presentation/bloc/book_event.dart';
 import 'presentation/screens/dashboard_screen.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await NotificationService.initialize();
   runApp(const MaxemosBMSApp());
 }

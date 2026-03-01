@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../config/env.dart';
+import '../utils/logger.dart';
 
 class GeminiService {
   static Future<Map<String, dynamic>> generateMetadata(String title) async {
@@ -34,6 +35,7 @@ Example format: {"summary": "A great book.", "categories": ["Fiction", "Fantasy"
       final Map<String, dynamic> data = json.decode(text);
       return data;
     } catch (e) {
+      logger.e('Failed to generate metadata from Gemini AI: $e');
       throw Exception('Failed to generate metadata from Gemini AI: $e');
     }
   }
@@ -68,6 +70,7 @@ $excerptText
 
       return response.text ?? 'No summary generated.';
     } catch (e) {
+      logger.e('Failed to summarize excerpt via Gemini AI: $e');
       throw Exception('Failed to summarize excerpt via Gemini AI: $e');
     }
   }

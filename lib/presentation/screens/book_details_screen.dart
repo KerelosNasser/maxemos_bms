@@ -8,6 +8,7 @@ import '../../core/services/gemini_service.dart';
 import '../bloc/book_bloc.dart';
 import '../bloc/book_event.dart';
 import 'pdf_reader_screen.dart';
+import '../widgets/book_details_widgets.dart';
 
 class BookDetailsScreen extends StatefulWidget {
   final Book book;
@@ -134,16 +135,16 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  _buildDetailRow('Author', widget.book.author, context),
-                  _buildDetailRow(
-                    'Size',
-                    '${(widget.book.size / 1024 / 1024).toStringAsFixed(2)} MB',
-                    context,
+                  BookDetailRow(label: 'Author', value: widget.book.author),
+                  BookDetailRow(
+                    label: 'Size',
+                    value:
+                        '${(widget.book.size / 1024 / 1024).toStringAsFixed(2)} MB',
                   ),
-                  _buildDetailRow(
-                    'Added on',
-                    '${widget.book.dateCreated.year}-${widget.book.dateCreated.month.toString().padLeft(2, '0')}-${widget.book.dateCreated.day.toString().padLeft(2, '0')}',
-                    context,
+                  BookDetailRow(
+                    label: 'Added on',
+                    value:
+                        '${widget.book.dateCreated.year}-${widget.book.dateCreated.month.toString().padLeft(2, '0')}-${widget.book.dateCreated.day.toString().padLeft(2, '0')}',
                   ),
 
                   const SizedBox(height: 16),
@@ -158,31 +159,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
-                  if (widget.book.categories.isEmpty)
-                    Text(
-                      'Uncategorized',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontStyle: FontStyle.italic,
-                        color: Colors.black54,
-                      ),
-                    )
-                  else
-                    Wrap(
-                      spacing: 8.0,
-                      runSpacing: 8.0,
-                      children: widget.book.categories.map((cat) {
-                        return Chip(
-                          label: Text(
-                            cat,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          backgroundColor: VintageTheme.deeperParchment,
-                          side: const BorderSide(
-                            color: VintageTheme.vintageGold,
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                  BookCategoriesWrap(categories: widget.book.categories),
 
                   const SizedBox(height: 32),
                   Text(
@@ -190,24 +167,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: VintageTheme.parchmentDark.withOpacity(0.5),
-                      border: Border.all(
-                        color: VintageTheme.vintageGold.withOpacity(0.5),
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      widget.book.summary.isNotEmpty
-                          ? widget.book.summary
-                          : 'No summary available. AI categorization pending.',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyLarge?.copyWith(height: 1.5),
-                    ),
-                  ),
+                  BookSummaryCard(summary: widget.book.summary),
 
                   const SizedBox(height: 48),
                   ElevatedButton.icon(
@@ -274,30 +234,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: VintageTheme.inkFaded,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyLarge),
-          ),
-        ],
       ),
     );
   }

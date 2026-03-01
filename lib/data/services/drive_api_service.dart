@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/book.dart';
 import '../../core/config/env.dart';
+import '../../core/utils/logger.dart';
 
 class DriveApiService {
-  static const String _scriptUrl = Env.driveApiUrl;
+  static String get _scriptUrl => Env.driveApiUrl;
 
   Future<http.Response> _postWithRedirects(
     Map<String, dynamic> body, {
@@ -49,6 +50,7 @@ class DriveApiService {
         );
       }
     } catch (e) {
+      logger.e('Error fetching files: $e');
       throw Exception('Error fetching files: $e');
     }
   }
@@ -87,6 +89,7 @@ class DriveApiService {
         );
       }
     } catch (e) {
+      logger.e('Error uploading file: $e');
       throw Exception('Error uploading file: $e');
     }
   }
@@ -116,6 +119,7 @@ class DriveApiService {
         );
       }
     } catch (e) {
+      logger.e('Error updating file metadata: $e');
       throw Exception('Error updating file metadata: $e');
     }
   }
@@ -139,6 +143,7 @@ class DriveApiService {
         );
       }
     } catch (e) {
+      logger.e('Error deleting file: $e');
       throw Exception('Error deleting file: $e');
     }
   }
