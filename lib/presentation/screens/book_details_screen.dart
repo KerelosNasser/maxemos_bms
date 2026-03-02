@@ -90,16 +90,23 @@ class BookDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
 
-                        BookDetailRow(label: 'الكاتب', value: book.author),
+                        BookDetailRow(
+                          label: 'الكاتب',
+                          value: book.author,
+                          valueColor: Colors.black,
+                        ),
                         BookDetailRow(
                           label: 'الحجم',
                           value:
                               '${(book.size / 1024 / 1024).toStringAsFixed(2)} MB',
+                          valueColor: Colors.black,
                         ),
+
                         BookDetailRow(
-                          label: 'تاريخ الإضافة',
+                          label: 'التاريخ',
                           value:
                               '${book.dateCreated.year}-${book.dateCreated.month.toString().padLeft(2, '0')}-${book.dateCreated.day.toString().padLeft(2, '0')}',
+                          valueColor: Colors.black,
                         ),
 
                         const SizedBox(height: 16),
@@ -111,7 +118,9 @@ class BookDetailsScreen extends StatelessWidget {
 
                         Text(
                           'التصنيفات',
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleLarge?.copyWith(color: Colors.black),
                         ),
                         const SizedBox(height: 8),
                         BookCategoriesWrap(categories: book.categories),
@@ -119,7 +128,9 @@ class BookDetailsScreen extends StatelessWidget {
                         const SizedBox(height: 32),
                         Text(
                           'ملخص وتحليلات',
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleLarge?.copyWith(color: Colors.black),
                         ),
                         const SizedBox(height: 12),
                         BookSummaryCard(summary: book.summary),
@@ -129,7 +140,7 @@ class BookDetailsScreen extends StatelessWidget {
                           onPressed: () {
                             Navigator.push(
                               context,
-                             MaterialPageRoute(
+                              MaterialPageRoute(
                                 builder: (context) =>
                                     PdfReaderScreen(book: book),
                               ),

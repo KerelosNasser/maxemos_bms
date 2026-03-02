@@ -4,8 +4,14 @@ import '../../core/theme/vintage_theme.dart';
 class BookDetailRow extends StatelessWidget {
   final String label;
   final String value;
+  final Color? valueColor;
 
-  const BookDetailRow({super.key, required this.label, required this.value});
+  const BookDetailRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +31,12 @@ class BookDetailRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyLarge),
+            child: Text(
+              value,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: valueColor),
+            ),
           ),
         ],
       ),
