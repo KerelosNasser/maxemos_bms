@@ -32,7 +32,7 @@ class MaxemosBMSApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Maxemos BMS',
         debugShowCheckedModeBanner: false,
-        theme: VintageTheme.lightTheme,
+        theme: VintageTheme.darkTheme,
         home: const DashboardScreen(),
       ),
     );

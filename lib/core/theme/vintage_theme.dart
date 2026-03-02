@@ -15,47 +15,50 @@ class VintageTheme {
   static const Color crimsonRed = Color(0xFF8B0000);
   static const Color vintageGold = Color(0xFFB8860B);
 
-  static ThemeData get lightTheme {
+  static ThemeData get darkTheme {
     return ThemeData(
-      primaryColor: crimsonRed,
-      scaffoldBackgroundColor: parchmentLight,
-      colorScheme: const ColorScheme.light(
-        primary: crimsonRed,
-        secondary: vintageGold,
-        surface: parchmentLight,
-        onPrimary: parchmentLight,
+      primaryColor: vintageGold,
+      scaffoldBackgroundColor: inkDark,
+      colorScheme: const ColorScheme.dark(
+        primary: vintageGold,
+        secondary: parchmentLight,
+        surface: inkDark,
+        onPrimary: inkDark,
         onSecondary: inkDark,
-        onSurface: inkDark,
+        onSurface: Colors.white,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: deeperParchment,
-        foregroundColor: inkDark,
+        backgroundColor: inkDark,
+        foregroundColor: Colors.white,
         elevation: 1,
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white, size: 28),
+        actionsIconTheme: const IconThemeData(color: Colors.white, size: 28),
         titleTextStyle: GoogleFonts.cinzel(
-          color: inkDark,
-          fontSize: 24,
+          color: Colors.white,
+          fontSize: 26,
           fontWeight: FontWeight.bold,
         ),
       ),
+      iconTheme: const IconThemeData(color: Colors.white, size: 28),
       textTheme: TextTheme(
         displayLarge: GoogleFonts.cinzel(
-          color: inkDark,
-          fontSize: 32,
+          color: Colors.white,
+          fontSize: 34,
           fontWeight: FontWeight.bold,
         ),
         titleLarge: GoogleFonts.cinzel(
-          color: inkDark,
-          fontSize: 24,
+          color: Colors.white,
+          fontSize: 26,
           fontWeight: FontWeight.w600,
         ),
-        bodyLarge: GoogleFonts.crimsonText(color: inkDark, fontSize: 18),
-        bodyMedium: GoogleFonts.crimsonText(color: inkDark, fontSize: 16),
+        bodyLarge: GoogleFonts.crimsonText(color: Colors.white, fontSize: 22),
+        bodyMedium: GoogleFonts.crimsonText(color: Colors.white, fontSize: 20),
       ),
       cardTheme: CardThemeData(
-        color: parchmentDark,
+        color: inkFaded,
         elevation: 4,
-        shadowColor: inkDark.withOpacity(0.3),
+        shadowColor: Colors.black.withOpacity(0.5),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: const BorderSide(color: deeperParchment, width: 2),
@@ -63,9 +66,12 @@ class VintageTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: crimsonRed,
-          foregroundColor: parchmentLight,
-          textStyle: GoogleFonts.cinzel(fontWeight: FontWeight.bold),
+          backgroundColor: vintageGold,
+          foregroundColor: inkDark,
+          textStyle: GoogleFonts.cinzel(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
       ),

@@ -9,10 +9,25 @@ import '../bloc/book_event.dart';
 import '../bloc/book_state.dart';
 import '../../data/models/book.dart';
 import '../../core/services/notification_service.dart';
+import '../widgets/dashboard_search_bar.dart';
 import '../widgets/book_card.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   List<String> _extractCategories(List<Book> books) {
     Set<String> categorySet = {};
@@ -124,6 +139,15 @@ class DashboardScreen extends StatelessWidget {
               TabBarView(
                 children: categories.map((category) {
                   List<Book> filteredBooks = state.books.where((book) {
+                    // Global Search Filter
+                    if (_searchQuery.isNotEmpty) {
+                      final matchTitle = book.title.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      );
+                      if (!matchTitle) return false;
+                    }
+
+                    // Category Filter
                     if (category == 'All') return true;
                     if (category == 'Uncategorized') {
                       return book.categories.isEmpty;
@@ -228,16 +252,28 @@ class DashboardScreen extends StatelessWidget {
       ),
       body: Container(
         decoration: BoxDecoration(
-          color: VintageTheme.parchmentLight,
+          color: VintageTheme.inkDark,
           image: const DecorationImage(
             image: NetworkImage(
               'https://www.transparenttextures.com/patterns/old-wall.png',
             ),
             repeat: ImageRepeat.repeat,
-            colorFilter: ColorFilter.mode(Colors.white24, BlendMode.dstATop),
+            colorFilter: ColorFilter.mode(Colors.white10, BlendMode.dstATop),
           ),
         ),
-        child: bodyContent,
+        child: Column(
+          children: [
+            DashboardSearchBar(
+              controller: _searchController,
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val;
+                });
+              },
+            ),
+            Expanded(child: bodyContent),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _pickAndUploadPDF(context),

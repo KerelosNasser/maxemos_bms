@@ -5,6 +5,7 @@ import '../../data/models/book.dart';
 import '../../core/theme/vintage_theme.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/notification_service.dart';
+import '../widgets/pdf_search_bar.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final Book book;
@@ -73,21 +74,39 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              backgroundColor: VintageTheme.parchmentLight,
-              title: const Text('Summarize Pages (AI)'),
+              backgroundColor: VintageTheme.inkDark,
+              title: const Text(
+                'تلخيص الصفحات (ذكاء اصطناعي)', // Summarize Pages (AI)
+                textDirection: TextDirection.rtl,
+                style: TextStyle(color: Colors.white),
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Enter the page range to summarize using Gemini.'),
+                  const Text(
+                    'أدخل نطاق الصفحات المراد تلخيصها باستخدام Gemini.',
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(color: Colors.white70),
+                  ),
                   const SizedBox(height: 16),
                   Row(
+                    textDirection: TextDirection.rtl,
                     children: [
-                      const Expanded(flex: 2, child: Text('Start Page:')),
+                      const Expanded(
+                        flex: 2,
+                        child: Text(
+                          'من صفحة:',
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
                       Expanded(
                         flex: 3,
                         child: TextField(
                           controller: startController,
                           keyboardType: TextInputType.number,
+                          style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
                             isDense: true,
@@ -101,13 +120,22 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   ),
                   const SizedBox(height: 12),
                   Row(
+                    textDirection: TextDirection.rtl,
                     children: [
-                      const Expanded(flex: 2, child: Text('End Page:')),
+                      const Expanded(
+                        flex: 2,
+                        child: Text(
+                          'إلى صفحة:',
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
                       Expanded(
                         flex: 3,
                         child: TextField(
                           controller: endController,
                           keyboardType: TextInputType.number,
+                          style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
                             isDense: true,
@@ -124,7 +152,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
+                  child: const Text(
+                    'إلغاء',
+                    style: TextStyle(color: Colors.white70),
+                  ),
                 ),
                 TextButton(
                   onPressed: () {
@@ -136,10 +167,11 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     _executeSummarization(startPage, endPage);
                   },
                   child: const Text(
-                    'Summarize',
+                    'تلخيص',
                     style: TextStyle(
-                      color: VintageTheme.crimsonRed,
+                      color: VintageTheme.vintageGold,
                       fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
                   ),
                 ),
@@ -268,56 +300,23 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 ),
                 controller: _pdfController,
                 params: const PdfViewerParams(
-                  backgroundColor: VintageTheme.parchmentLight,
+                  backgroundColor: VintageTheme.inkDark,
                 ),
               ),
             ),
 
-            // Custom Search Overlay Bar
             if (_isSearching)
               Positioned(
-                top: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
+                bottom:
+                    MediaQuery.of(context).padding.bottom +
+                    85, // Show above floating action buttons
                 left: 16,
                 right: 16,
-                child: Material(
-                  elevation: 8,
-                  borderRadius: BorderRadius.circular(8),
-                  color: VintageTheme.parchmentLight,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8.0,
-                      vertical: 4.0,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: const InputDecoration(
-                              hintText: 'Search text...',
-                              border: InputBorder.none,
-                            ),
-                            onSubmitted: _performSearch,
-                          ),
-                        ),
-                        if (_textSearcher != null &&
-                            _searchController.text.isNotEmpty) ...[
-                          IconButton(
-                            icon: const Icon(Icons.keyboard_arrow_up),
-                            onPressed: () => _textSearcher?.goToPrevMatch(),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.keyboard_arrow_down),
-                            onPressed: () => _textSearcher?.goToNextMatch(),
-                          ),
-                        ],
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: _toggleSearch,
-                        ),
-                      ],
-                    ),
-                  ),
+                child: PdfSearchBar(
+                  controller: _searchController,
+                  textSearcher: _textSearcher,
+                  onClose: _toggleSearch,
+                  onSubmitted: _performSearch,
                 ),
               ),
 
@@ -332,9 +331,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               height: kToolbarHeight + MediaQuery.of(context).padding.top,
               child: Material(
                 elevation: 4,
-                color:
-                    Theme.of(context).appBarTheme.backgroundColor ??
-                    VintageTheme.parchmentLight,
+                color: VintageTheme.inkDark,
                 child: Container(
                   padding: EdgeInsets.only(
                     top: MediaQuery.of(context).padding.top,
@@ -342,7 +339,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                         onPressed: () => Navigator.pop(context),
                       ),
                       Expanded(
@@ -353,7 +350,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                             child: Text(
                               widget.book.title,
                               style: const TextStyle(
-                                fontSize: 18,
+                                color: Colors.white,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
                               maxLines: 1,
@@ -365,6 +363,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                       IconButton(
                         icon: Icon(
                           _isSearching ? Icons.search_off : Icons.search,
+                          color: Colors.white,
                         ),
                         onPressed: _toggleSearch,
                         tooltip: 'Find text',
@@ -377,7 +376,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
             if (_isSummarizing)
               Container(
-                color: Colors.black54,
+                color: Colors.black87,
                 child: const Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -387,8 +386,13 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                       ),
                       SizedBox(height: 16),
                       Text(
-                        'Consulting the Oracle...',
-                        style: TextStyle(color: Colors.white, fontSize: 18),
+                        'جاري الرجوع لآباء الكنيسة...', // Consulting the Fathers...
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textDirection: TextDirection.rtl,
                       ),
                     ],
                   ),
@@ -401,15 +405,20 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               bottom: _isUIVisible ? 16 : -80,
               right: 16,
               child: FloatingActionButton.extended(
-                backgroundColor: VintageTheme.inkDark,
+                backgroundColor: VintageTheme.inkFaded,
                 onPressed: _showSummarizeDialog,
                 icon: const Icon(
                   Icons.auto_awesome,
                   color: VintageTheme.vintageGold,
+                  size: 28,
                 ),
                 label: const Text(
-                  'Summarize',
-                  style: TextStyle(color: VintageTheme.vintageGold),
+                  'تلخيص',
+                  style: TextStyle(
+                    color: VintageTheme.vintageGold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
