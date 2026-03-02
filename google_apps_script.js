@@ -12,7 +12,7 @@
 // 9. Who has access: "Anyone". (This is safe because only your Flutter app will use this URL).
 // 10. Click "Deploy", copy the "Web app URL", and provide it to me in the prompt!
 
-const FOLDER_ID = "YOUR_DRIVE_FOLDER_ID_HERE"; // <-- UPDATE THIS
+const FOLDER_ID = "1cM3Cw-WFAPejUAqxTFGxdU51_M6cqoIr"; // <-- UPDATE THIS
 
 // Handles POST requests
 function doPost(e) {
@@ -23,7 +23,7 @@ function doPost(e) {
 
     // VERY BASIC SECURITY
     // In production, compare this against a Script Property.
-    const EXPECTED_SECRET = "YOUR_SCRIPT_SECRET_HERE";
+    const EXPECTED_SECRET = "maxemos123";
     if (secret !== EXPECTED_SECRET) {
       return ContentService.createTextOutput(
         JSON.stringify({ success: false, error: "401 Unauthorized" })

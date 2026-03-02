@@ -52,11 +52,31 @@ class BookCategoriesWrap extends StatelessWidget {
     return Wrap(
       spacing: 8.0,
       runSpacing: 8.0,
+      textDirection: TextDirection.rtl,
       children: categories.map((cat) {
-        return Chip(
-          label: Text(cat, style: const TextStyle(fontWeight: FontWeight.bold)),
-          backgroundColor: VintageTheme.deeperParchment,
-          side: const BorderSide(color: VintageTheme.vintageGold),
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: VintageTheme.inkDark,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: VintageTheme.vintageGold, width: 1.5),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            cat,
+            textDirection: TextDirection.rtl,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
         );
       }).toList(),
     );
@@ -71,17 +91,28 @@ class BookSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      // Use a dark ink background for high contrast with white text
       decoration: BoxDecoration(
-        color: VintageTheme.parchmentDark.withOpacity(0.5),
-        border: Border.all(color: VintageTheme.vintageGold.withOpacity(0.5)),
-        borderRadius: BorderRadius.circular(8),
+        color: VintageTheme.inkDark,
+        border: Border.all(color: VintageTheme.vintageGold, width: 2),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 4)),
+        ],
       ),
       child: Text(
         summary.isNotEmpty
             ? summary
-            : 'No summary available. AI categorization pending.',
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
+            : 'لم يتم إنشاء الملخص حتى الآن.', // 'No summary available' in Arabic
+        textDirection:
+            TextDirection.rtl, // Ensure right-to-left alignment for Arabic
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          height: 1.8,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
