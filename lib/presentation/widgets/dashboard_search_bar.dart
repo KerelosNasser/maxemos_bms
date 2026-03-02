@@ -1,23 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/vintage_theme.dart';
+import '../bloc/dashboard_cubit.dart';
 
-class DashboardSearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
+class DashboardSearchBar extends StatefulWidget {
+  const DashboardSearchBar({super.key});
 
-  const DashboardSearchBar({
-    super.key,
-    required this.controller,
-    required this.onChanged,
-  });
+  @override
+  State<DashboardSearchBar> createState() => _DashboardSearchBarState();
+}
+
+class _DashboardSearchBarState extends State<DashboardSearchBar> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: TextField(
-        controller: controller,
-        onChanged: onChanged,
+        controller: _controller,
+        onChanged: (val) {
+          context.read<DashboardCubit>().searchChanged(val);
+        },
         style: const TextStyle(color: Colors.white, fontSize: 21),
         decoration: InputDecoration(
           hintText: 'بحث في المكتبة...',

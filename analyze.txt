@@ -1,0 +1,22 @@
+﻿Analyzing maxemos_bms...                                        
+
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\vintage_theme.dart:61:35 - deprecated_member_use
+   info - 'printTime' is deprecated and shouldn't be used. Use `dateTimeFormat` with `DateTimeFormat.onlyTimeAndSinceStart` or `DateTimeFormat.none` instead - lib\core\utils\logger.dart:10:5 - deprecated_member_use
+   info - The 'if' statement could be replaced by a null-aware assignment - lib\presentation\bloc\pdf_reader_bloc.dart:28:5 - prefer_conditional_assignment
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\screens\book_details_screen.dart:72:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\screens\pdf_reader_screen.dart:210:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\book_card.dart:22:58 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\presentation\widgets\book_card.dart:38:44 - deprecated_member_use
+   info - Don't invoke 'print' in production code - list_gemini_models.dart:9:5 - avoid_print
+   info - Don't invoke 'print' in production code - list_gemini_models.dart:23:5 - avoid_print
+   info - Don't invoke 'print' in production code - list_gemini_models.dart:35:5 - avoid_print
+   info - Don't invoke 'print' in production code - list_gemini_models.dart:39:9 - avoid_print
+   info - Don't invoke 'print' in production code - list_gemini_models.dart:45:5 - avoid_print
+   info - Don't invoke 'print' in production code - test_redirects.dart:19:5 - avoid_print
+   info - Don't invoke 'print' in production code - test_redirects.dart:24:7 - avoid_print
+   info - Don't invoke 'print' in production code - test_redirects.dart:38:9 - avoid_print
+   info - Don't invoke 'print' in production code - test_redirects.dart:40:11 - avoid_print
+   info - Don't invoke 'print' in production code - test_redirects.dart:42:11 - avoid_print
+   info - Don't invoke 'print' in production code - test_redirects.dart:47:7 - avoid_print
+   info - Don't invoke 'print' in production code - test_redirects.dart:50:5 - avoid_print
+

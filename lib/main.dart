@@ -5,6 +5,7 @@ import 'data/services/drive_api_service.dart';
 import 'presentation/bloc/book_bloc.dart';
 import 'presentation/bloc/book_event.dart';
 import 'presentation/screens/dashboard_screen.dart';
+import 'presentation/bloc/dashboard_cubit.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/services/notification_service.dart';
@@ -28,6 +29,7 @@ class MaxemosBMSApp extends StatelessWidget {
               BookBloc(driveApiService: DriveApiService())
                 ..add(LoadBooksEvent()),
         ),
+        BlocProvider<DashboardCubit>(create: (context) => DashboardCubit()),
       ],
       child: MaterialApp(
         title: 'Maxemos BMS',

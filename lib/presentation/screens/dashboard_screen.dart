@@ -11,23 +11,10 @@ import '../../data/models/book.dart';
 import '../../core/services/notification_service.dart';
 import '../widgets/dashboard_search_bar.dart';
 import '../widgets/book_card.dart';
+import '../bloc/dashboard_cubit.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   List<String> _extractCategories(List<Book> books) {
     Set<String> categorySet = {};
@@ -138,69 +125,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
               context,
               TabBarView(
                 children: categories.map((category) {
-                  List<Book> filteredBooks = state.books.where((book) {
-                    // Global Search Filter
-                    if (_searchQuery.isNotEmpty) {
-                      final matchTitle = book.title.toLowerCase().contains(
-                        _searchQuery.toLowerCase(),
-                      );
-                      if (!matchTitle) return false;
-                    }
+                  return BlocBuilder<DashboardCubit, String>(
+                    builder: (context, searchQuery) {
+                      List<Book> filteredBooks = state.books.where((book) {
+                        // Global Search Filter
+                        if (searchQuery.isNotEmpty) {
+                          final matchTitle = book.title.toLowerCase().contains(
+                            searchQuery.toLowerCase(),
+                          );
+                          if (!matchTitle) return false;
+                        }
 
-                    // Category Filter
-                    if (category == 'All') return true;
-                    if (category == 'Uncategorized') {
-                      return book.categories.isEmpty;
-                    }
-                    return book.categories.contains(category);
-                  }).toList();
+                        // Category Filter
+                        if (category == 'All') return true;
+                        if (category == 'Uncategorized') {
+                          return book.categories.isEmpty;
+                        }
+                        return book.categories.contains(category);
+                      }).toList();
 
-                  if (filteredBooks.isEmpty) {
-                    return const Center(
-                      child: Text('No tomes in this category.'),
-                    );
-                  }
+                      if (filteredBooks.isEmpty) {
+                        return const Center(
+                          child: Text('No tomes in this category.'),
+                        );
+                      }
 
-                  return RefreshIndicator(
-                    color: VintageTheme.crimsonRed,
-                    onRefresh: () async {
-                      context.read<BookBloc>().add(LoadBooksEvent());
-                      // Wait for the state to stop loading
-                      await context.read<BookBloc>().stream.firstWhere(
-                        (state) => state is! BookLoading,
+                      return RefreshIndicator(
+                        color: VintageTheme.crimsonRed,
+                        onRefresh: () async {
+                          context.read<BookBloc>().add(LoadBooksEvent());
+                          // Wait for the state to stop loading
+                          await context.read<BookBloc>().stream.firstWhere(
+                            (state) => state is! BookLoading,
+                          );
+                        },
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth >= 600) {
+                              int crossAxisCount = (constraints.maxWidth / 400)
+                                  .ceil();
+                              return GridView.builder(
+                                padding: const EdgeInsets.all(16.0),
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: crossAxisCount,
+                                      mainAxisExtent:
+                                          130, // Fixed height to allow dynamic elements inside ListTile
+                                      crossAxisSpacing: 16.0,
+                                      mainAxisSpacing: 16.0,
+                                    ),
+                                itemCount: filteredBooks.length,
+                                itemBuilder: (context, index) {
+                                  return BookCard(book: filteredBooks[index]);
+                                },
+                              );
+                            }
+                            return ListView.builder(
+                              padding: const EdgeInsets.all(16.0),
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: filteredBooks.length,
+                              itemBuilder: (context, index) {
+                                return BookCard(book: filteredBooks[index]);
+                              },
+                            );
+                          },
+                        ),
                       );
                     },
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth >= 600) {
-                          int crossAxisCount = (constraints.maxWidth / 400)
-                              .ceil();
-                          return GridView.builder(
-                            padding: const EdgeInsets.all(16.0),
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              mainAxisExtent:
-                                  130, // Fixed height to allow dynamic elements inside ListTile
-                              crossAxisSpacing: 16.0,
-                              mainAxisSpacing: 16.0,
-                            ),
-                            itemCount: filteredBooks.length,
-                            itemBuilder: (context, index) {
-                              return BookCard(book: filteredBooks[index]);
-                            },
-                          );
-                        }
-                        return ListView.builder(
-                          padding: const EdgeInsets.all(16.0),
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          itemCount: filteredBooks.length,
-                          itemBuilder: (context, index) {
-                            return BookCard(book: filteredBooks[index]);
-                          },
-                        );
-                      },
-                    ),
                   );
                 }).toList(),
               ),
@@ -263,14 +255,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         child: Column(
           children: [
-            DashboardSearchBar(
-              controller: _searchController,
-              onChanged: (val) {
-                setState(() {
-                  _searchQuery = val;
-                });
-              },
-            ),
+            const DashboardSearchBar(),
             Expanded(child: bodyContent),
           ],
         ),
