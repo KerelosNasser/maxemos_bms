@@ -18,10 +18,10 @@ class DashboardSearchBar extends StatelessWidget {
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        style: const TextStyle(color: Colors.white, fontSize: 18),
+        style: const TextStyle(color: Colors.white, fontSize: 21),
         decoration: InputDecoration(
-          hintText: 'Search the archives...',
-          hintStyle: const TextStyle(color: Colors.white70, fontSize: 18),
+          hintText: 'بحث في المكتبة...',
+          hintStyle: const TextStyle(color: Colors.white70, fontSize: 21),
           prefixIcon: const Icon(Icons.search, color: Colors.white),
           filled: true,
           fillColor: VintageTheme.inkFaded,

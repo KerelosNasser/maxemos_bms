@@ -46,6 +46,7 @@ class BookCard extends StatelessWidget {
             child: Text(
               book.title,
               style: const TextStyle(
+                color: Colors.black,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'Cinzel',
                 fontSize: 18,
@@ -55,19 +56,6 @@ class BookCard extends StatelessWidget {
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            if (book.categories.isNotEmpty)
-              Text(
-                'Category: ${book.categories.join(', ')}',
-                style: const TextStyle(fontStyle: FontStyle.italic),
-              ),
-            const SizedBox(height: 4),
-            Text(
-              'Size: ${(book.size / 1024 / 1024).toStringAsFixed(2)} MB',
-              style: TextStyle(color: Colors.grey[700]),
-            ),
-          ],
         ),
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline, color: Colors.black54),
@@ -75,15 +63,15 @@ class BookCard extends StatelessWidget {
             showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: const Text('Delete Tome?'),
+                title: const Text('تاكيد الحذف'),
                 content: const Text(
-                  'Are you sure you wish to remove this manuscript from the archives?',
+                  'هل انت متأكد من حذف هذا الكتاب؟',
                 ),
-                backgroundColor: VintageTheme.parchmentLight,
+                backgroundColor: VintageTheme.inkFaded,
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Cancel'),
+                    child: const Text('الغاء'),
                   ),
                   TextButton(
                     onPressed: () {

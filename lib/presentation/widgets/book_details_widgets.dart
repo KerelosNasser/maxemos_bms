@@ -42,7 +42,7 @@ class BookCategoriesWrap extends StatelessWidget {
   Widget build(BuildContext context) {
     if (categories.isEmpty) {
       return Text(
-        'Uncategorized',
+        'غير مصنف',
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
           fontStyle: FontStyle.italic,
           color: Colors.black54,

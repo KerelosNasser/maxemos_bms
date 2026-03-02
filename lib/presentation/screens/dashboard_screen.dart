@@ -227,7 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Maxemos BMS'),
+        title: const Text('مدرسة الروح القدس'),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
@@ -245,7 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   isScrollable: true,
                   indicatorColor: VintageTheme.crimsonRed,
                   labelColor: VintageTheme.crimsonRed,
-                  unselectedLabelColor: Colors.black54,
+                  unselectedLabelColor: Colors.white,
                   tabs: categories.map((cat) => Tab(text: cat)).toList(),
                 ),
               ),

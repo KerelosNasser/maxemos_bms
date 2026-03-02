@@ -64,8 +64,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
         NotificationService.showNotification(
           id: 4,
-          title: 'AI Magic Complete',
-          body: 'Generated summary and categories successfully!',
+          title: 'تمت العملية',
+          body: 'تم توليد الملخص وفرزه',
         );
 
         Navigator.pop(
@@ -76,7 +76,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
       if (mounted) {
         NotificationService.showNotification(
           id: 5,
-          title: 'AI Generation Failed',
+          title: 'فشلت العملية',
           body: e.toString(),
         );
       }
@@ -92,7 +92,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Manuscript Details')),
+      appBar: AppBar(title: const Text('تفاصيل المخطوطة')),
       body: Container(
         decoration: BoxDecoration(
           color: VintageTheme.parchmentLight,
@@ -125,6 +125,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
                       fontSize: 28,
                       height: 1.2,
+                      color: Colors.black,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -135,14 +136,14 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  BookDetailRow(label: 'Author', value: widget.book.author),
+                  BookDetailRow(label: 'الكاتب', value: widget.book.author),
                   BookDetailRow(
-                    label: 'Size',
+                    label: 'الحجم',
                     value:
                         '${(widget.book.size / 1024 / 1024).toStringAsFixed(2)} MB',
                   ),
                   BookDetailRow(
-                    label: 'Added on',
+                    label: 'تاريخ الإضافة',
                     value:
                         '${widget.book.dateCreated.year}-${widget.book.dateCreated.month.toString().padLeft(2, '0')}-${widget.book.dateCreated.day.toString().padLeft(2, '0')}',
                   ),
@@ -155,15 +156,15 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                   const SizedBox(height: 24),
 
                   Text(
-                    'Categories',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    'التصنيفات',
+                    style: Theme.of(context).textTheme.titleLarge
                   ),
                   const SizedBox(height: 8),
                   BookCategoriesWrap(categories: widget.book.categories),
 
                   const SizedBox(height: 32),
                   Text(
-                    'Summary & Insights',
+                    'ملخص وتحليلات',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),
@@ -184,7 +185,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     label: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12.0),
                       child: Text(
-                        'Read Manuscript',
+                        'قراءة المخطوطة',
                         style: TextStyle(fontSize: 18),
                       ),
                     ),
@@ -196,7 +197,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     label: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12.0),
                       child: Text(
-                        'Open in Drive Externally',
+                        'فتح في Drive',
                         style: TextStyle(fontSize: 18),
                       ),
                     ),
@@ -224,8 +225,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     ),
                     label: Text(
                       _isGenerating
-                          ? 'Consulting the Oracle...'
-                          : 'Generate Summary & Categories',
+                          ? 'انتظر قليلا....'
+                          : 'توليد ملخص و تصنيف المخطوطة',
                       style: const TextStyle(fontSize: 18),
                     ),
                   ),
