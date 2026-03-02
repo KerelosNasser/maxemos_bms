@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/services/drive_api_service.dart';
+import '../../data/services/pdf_cache_service.dart';
 import '../../data/models/book.dart';
 import 'book_event.dart';
 import 'book_state.dart';
@@ -22,10 +23,23 @@ class BookBloc extends Bloc<BookEvent, BookState> {
     emit(BookLoading());
     try {
       final books = await driveApiService.getFiles();
-      emit(BookLoaded(books));
+      // Cache book list for offline use
+      PdfCacheService.cacheBookList(books);
+      // Check which PDFs are cached locally
+      final cachedIds = await PdfCacheService.getCachedBookIds();
+      emit(BookLoaded(books, cachedBookIds: cachedIds));
     } catch (e) {
       logger.e('Failed to load books: $e');
-      emit(BookError(e.toString()));
+      // Attempt to load from cache for offline mode
+      final cachedBooks = await PdfCacheService.getCachedBookList();
+      if (cachedBooks.isNotEmpty) {
+        final cachedIds = await PdfCacheService.getCachedBookIds();
+        emit(
+          BookLoaded(cachedBooks, cachedBookIds: cachedIds, isOffline: true),
+        );
+      } else {
+        emit(BookError(e.toString()));
+      }
     }
   }
 

@@ -2,6 +2,12 @@ import 'package:equatable/equatable.dart';
 import '../../../data/models/highlight.dart';
 
 class PdfReaderState extends Equatable {
+  // Download
+  final String? pdfFilePath;
+  final bool isDownloading;
+  final double downloadProgress;
+  final String? downloadError;
+
   // UI
   final bool isUIVisible;
 
@@ -24,6 +30,10 @@ class PdfReaderState extends Equatable {
   final int? selectedPageNumber;
 
   const PdfReaderState({
+    this.pdfFilePath,
+    required this.isDownloading,
+    required this.downloadProgress,
+    this.downloadError,
     required this.isUIVisible,
     required this.isSearching,
     required this.searchMatchCount,
@@ -39,6 +49,10 @@ class PdfReaderState extends Equatable {
 
   factory PdfReaderState.initial() {
     return const PdfReaderState(
+      pdfFilePath: null,
+      isDownloading: true,
+      downloadProgress: 0.0,
+      downloadError: null,
       isUIVisible: true,
       isSearching: false,
       searchMatchCount: 0,
@@ -54,6 +68,11 @@ class PdfReaderState extends Equatable {
   }
 
   PdfReaderState copyWith({
+    String? pdfFilePath,
+    bool? isDownloading,
+    double? downloadProgress,
+    String? downloadError,
+    bool clearDownloadError = false,
     bool? isUIVisible,
     bool? isSearching,
     int? searchMatchCount,
@@ -68,6 +87,12 @@ class PdfReaderState extends Equatable {
     bool clearSelectedText = false,
   }) {
     return PdfReaderState(
+      pdfFilePath: pdfFilePath ?? this.pdfFilePath,
+      isDownloading: isDownloading ?? this.isDownloading,
+      downloadProgress: downloadProgress ?? this.downloadProgress,
+      downloadError: clearDownloadError
+          ? null
+          : (downloadError ?? this.downloadError),
       isUIVisible: isUIVisible ?? this.isUIVisible,
       isSearching: isSearching ?? this.isSearching,
       searchMatchCount: searchMatchCount ?? this.searchMatchCount,
@@ -88,6 +113,10 @@ class PdfReaderState extends Equatable {
 
   @override
   List<Object?> get props => [
+    pdfFilePath,
+    isDownloading,
+    downloadProgress,
+    downloadError,
     isUIVisible,
     isSearching,
     searchMatchCount,

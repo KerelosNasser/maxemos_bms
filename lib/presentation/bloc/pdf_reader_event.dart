@@ -2,6 +2,18 @@ import '../../../data/models/highlight.dart';
 
 abstract class PdfReaderEvent {}
 
+// --- Download Events ---
+class DownloadPdfEvent extends PdfReaderEvent {
+  final String bookId;
+  final String downloadUrl;
+  DownloadPdfEvent({required this.bookId, required this.downloadUrl});
+}
+
+class DownloadProgressEvent extends PdfReaderEvent {
+  final double progress;
+  DownloadProgressEvent(this.progress);
+}
+
 // --- Search Events ---
 class ToggleSearchEvent extends PdfReaderEvent {}
 

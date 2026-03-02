@@ -8,85 +8,129 @@ import '../bloc/book_event.dart';
 
 class BookCard extends StatelessWidget {
   final Book book;
+  final bool isCached;
+  final bool isOffline;
 
-  const BookCard({super.key, required this.book});
+  const BookCard({
+    super.key,
+    required this.book,
+    this.isCached = false,
+    this.isOffline = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 4,
-      color: VintageTheme.parchmentLight,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: VintageTheme.vintageGold.withOpacity(0.5)),
-      ),
-      child: ListTile(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BookDetailsScreen(book: book),
-            ),
-          );
-        },
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Hero(
-          tag: 'book_icon_${book.id}',
-          child: Icon(
-            Icons.menu_book,
-            color: VintageTheme.crimsonRed.withOpacity(0.8),
-            size: 40,
+    final isAvailable = !isOffline || isCached;
+
+    return Opacity(
+      opacity: isAvailable ? 1.0 : 0.5,
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 4,
+        color: VintageTheme.parchmentLight,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: isCached
+                ? Colors.green.withValues(alpha: 0.6)
+                : VintageTheme.vintageGold.withValues(alpha: 0.5),
           ),
         ),
-        title: Hero(
-          tag: 'book_title_${book.id}',
-          child: Material(
-            type: MaterialType.transparency,
-            child: Text(
-              book.title,
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Cinzel',
-                fontSize: 18,
-              ),
-            ),
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.black54),
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('تاكيد الحذف'),
-                content: const Text(
-                  'هل انت متأكد من حذف هذا الكتاب؟',
+        child: ListTile(
+          onTap: () {
+            if (!isAvailable) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('هذا الكتاب غير متاح بدون إنترنت'),
+                  duration: Duration(seconds: 2),
                 ),
-                backgroundColor: VintageTheme.inkFaded,
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('الغاء'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      context.read<BookBloc>().add(DeleteBookEvent(book.id));
-                    },
-                    child: const Text(
-                      'Delete',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
+              );
+              return;
+            }
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BookDetailsScreen(book: book),
               ),
             );
           },
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          leading: Hero(
+            tag: 'book_icon_${book.id}',
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  Icons.menu_book,
+                  color: VintageTheme.crimsonRed.withValues(alpha: 0.8),
+                  size: 40,
+                ),
+                // Offline-available badge
+                if (isCached)
+                  const Positioned(
+                    right: -4,
+                    bottom: -4,
+                    child: CircleAvatar(
+                      radius: 8,
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.download_done,
+                        size: 12,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          title: Hero(
+            tag: 'book_title_${book.id}',
+            child: Material(
+              type: MaterialType.transparency,
+              child: Text(
+                book.title,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Cinzel',
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ),
+          subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.black54),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('تاكيد الحذف'),
+                  content: const Text('هل انت متأكد من حذف هذا الكتاب؟'),
+                  backgroundColor: VintageTheme.inkFaded,
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('الغاء'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        context.read<BookBloc>().add(DeleteBookEvent(book.id));
+                      },
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

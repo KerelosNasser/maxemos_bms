@@ -117,6 +117,9 @@ class DashboardScreen extends StatelessWidget {
             );
           }
 
+          final cachedIds = state.cachedBookIds;
+          final isOffline = state.isOffline;
+
           final categories = _extractCategories(state.books);
 
           return DefaultTabController(
@@ -177,7 +180,13 @@ class DashboardScreen extends StatelessWidget {
                                     ),
                                 itemCount: filteredBooks.length,
                                 itemBuilder: (context, index) {
-                                  return BookCard(book: filteredBooks[index]);
+                                  return BookCard(
+                                    book: filteredBooks[index],
+                                    isCached: cachedIds.contains(
+                                      filteredBooks[index].id,
+                                    ),
+                                    isOffline: isOffline,
+                                  );
                                 },
                               );
                             }
@@ -186,7 +195,13 @@ class DashboardScreen extends StatelessWidget {
                               physics: const AlwaysScrollableScrollPhysics(),
                               itemCount: filteredBooks.length,
                               itemBuilder: (context, index) {
-                                return BookCard(book: filteredBooks[index]);
+                                return BookCard(
+                                  book: filteredBooks[index],
+                                  isCached: cachedIds.contains(
+                                    filteredBooks[index].id,
+                                  ),
+                                  isOffline: isOffline,
+                                );
                               },
                             );
                           },
@@ -255,6 +270,32 @@ class DashboardScreen extends StatelessWidget {
         ),
         child: Column(
           children: [
+            // Offline banner
+            if (state is BookLoaded && state.isOffline)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 16,
+                ),
+                color: Colors.orange.shade800,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'وضع عدم الاتصال — يتم عرض الكتب المحفوظة',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textDirection: TextDirection.rtl,
+                    ),
+                  ],
+                ),
+              ),
             const DashboardSearchBar(),
             Expanded(child: bodyContent),
           ],

@@ -14,11 +14,17 @@ class BookLoading extends BookState {}
 
 class BookLoaded extends BookState {
   final List<Book> books;
+  final Set<String> cachedBookIds;
+  final bool isOffline;
 
-  const BookLoaded(this.books);
+  const BookLoaded(
+    this.books, {
+    this.cachedBookIds = const {},
+    this.isOffline = false,
+  });
 
   @override
-  List<Object> get props => [books];
+  List<Object> get props => [books, cachedBookIds, isOffline];
 }
 
 class BookError extends BookState {

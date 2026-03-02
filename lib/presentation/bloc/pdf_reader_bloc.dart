@@ -4,6 +4,7 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/notification_service.dart';
+import '../../data/services/pdf_cache_service.dart';
 
 import '../../data/services/highlight_service.dart';
 import 'pdf_reader_event.dart';
@@ -16,6 +17,10 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
   Timer? _searchDebounce;
 
   PdfReaderBloc() : super(PdfReaderState.initial()) {
+    // Download
+    on<DownloadPdfEvent>(_onDownloadPdf);
+    on<DownloadProgressEvent>(_onDownloadProgress);
+
     // Search
     on<ToggleSearchEvent>(_onToggleSearch);
     on<SearchQueryChangedEvent>(_onSearchQueryChanged);
@@ -198,14 +203,42 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
     try {
       NotificationService.showNotification(
         id: 7,
-        title: 'Extracting Arabic Text',
-        body: 'Running OCR on pages ${event.startPage} to ${event.endPage}...',
+        title: 'استخراج النص',
+        body:
+            'جاري استخراج النص من صفحات ${event.startPage} إلى ${event.endPage}...',
       );
 
-      await Future.delayed(const Duration(seconds: 2));
+      // Extract text from the requested page range only
+      final document = pdfController.document;
 
-      String extractedText =
-          "Extracted text payload from pages ${event.startPage} to ${event.endPage} from the book ${event.bookTitle}.";
+      final buffer = StringBuffer();
+      final totalPages = document.pages.length;
+      final start = event.startPage.clamp(1, totalPages);
+      final end = event.endPage.clamp(start, totalPages);
+
+      for (int i = start; i <= end; i++) {
+        final page = document.pages[i - 1]; // 0-indexed
+        final pageText = await page.loadText();
+        final text = pageText?.fullText.trim() ?? '';
+        if (text.isNotEmpty) {
+          buffer.writeln('--- صفحة $i ---');
+          buffer.writeln(text);
+          buffer.writeln();
+        }
+      }
+
+      String extractedText = buffer.toString().trim();
+      if (extractedText.isEmpty) {
+        extractedText =
+            'لم يتم العثور على نص قابل للاستخراج في الصفحات $start إلى $end من كتاب ${event.bookTitle}. قد تكون الصفحات عبارة عن صور.';
+      }
+
+      // Safety: cap at ~30k chars to avoid oversized Gemini requests
+      const maxChars = 30000;
+      if (extractedText.length > maxChars) {
+        extractedText =
+            '${extractedText.substring(0, maxChars)}\n\n[... تم اقتطاع النص بسبب الطول]';
+      }
 
       final summary = await GeminiService.summarizeExcerpt(
         extractedText,
@@ -287,6 +320,48 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
   ) {
     emit(state.copyWith(clearSelectedText: true));
   }
+
+  // --- Download ---
+
+  Future<void> _onDownloadPdf(
+    DownloadPdfEvent event,
+    Emitter<PdfReaderState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        isDownloading: true,
+        downloadProgress: 0.0,
+        clearDownloadError: true,
+      ),
+    );
+    try {
+      final file = await PdfCacheService.getCachedPdf(
+        bookId: event.bookId,
+        downloadUrl: event.downloadUrl,
+        onProgress: (received, total) {
+          if (total > 0) {
+            add(DownloadProgressEvent(received / total));
+          }
+        },
+      );
+      emit(
+        state.copyWith(
+          isDownloading: false,
+          downloadProgress: 1.0,
+          pdfFilePath: file.path,
+        ),
+      );
+    } catch (e) {
+      emit(state.copyWith(isDownloading: false, downloadError: e.toString()));
+    }
+  }
+
+  void _onDownloadProgress(
+    DownloadProgressEvent event,
+    Emitter<PdfReaderState> emit,
+  ) {
+    emit(state.copyWith(downloadProgress: event.progress));
+  }
 }
 
 // Special states to trigger Dialogs in the UI (Listening)
@@ -295,6 +370,10 @@ class PdfReaderSummarySuccess extends PdfReaderState {
 
   PdfReaderSummarySuccess(PdfReaderState state, this.summary)
     : super(
+        pdfFilePath: state.pdfFilePath,
+        isDownloading: state.isDownloading,
+        downloadProgress: state.downloadProgress,
+        downloadError: state.downloadError,
         isUIVisible: state.isUIVisible,
         isSearching: state.isSearching,
         searchMatchCount: state.searchMatchCount,
@@ -312,6 +391,10 @@ class PdfReaderSummaryFailure extends PdfReaderState {
 
   PdfReaderSummaryFailure(PdfReaderState state, this.errorMessage)
     : super(
+        pdfFilePath: state.pdfFilePath,
+        isDownloading: state.isDownloading,
+        downloadProgress: state.downloadProgress,
+        downloadError: state.downloadError,
         isUIVisible: state.isUIVisible,
         isSearching: state.isSearching,
         searchMatchCount: state.searchMatchCount,
