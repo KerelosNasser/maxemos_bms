@@ -3,8 +3,10 @@ import 'package:flutter/rendering.dart';
 import 'package:pdfrx/pdfrx.dart';
 import '../../data/models/book.dart';
 import '../../core/theme/vintage_theme.dart';
-import '../../core/services/gemini_service.dart';
-import '../../core/services/notification_service.dart';
+import '../bloc/pdf_reader_bloc.dart';
+import '../bloc/pdf_reader_event.dart';
+import '../bloc/pdf_reader_state.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../widgets/pdf_search_bar.dart';
 
 class PdfReaderScreen extends StatefulWidget {
@@ -19,18 +21,12 @@ class PdfReaderScreen extends StatefulWidget {
 class _PdfReaderScreenState extends State<PdfReaderScreen> {
   final PdfViewerController _pdfController = PdfViewerController();
   PdfTextSearcher? _textSearcher;
-
-  bool _isSummarizing = false;
-  bool _isUIVisible = true;
-  bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // Initialize searcher attached to this controller
-    _textSearcher = PdfTextSearcher(_pdfController)
-      ..addListener(_onSearcherUpdated);
+    // Searcher is lazily initialized once the viewer is ready
   }
 
   @override
@@ -42,17 +38,19 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   }
 
   void _onSearcherUpdated() {
-    if (mounted) setState(() {});
+    if (mounted)
+      setState(
+        () {},
+      ); // Minimal setState just for the cross-match highlights of pdfrx
   }
 
-  void _toggleSearch() {
-    setState(() {
-      _isSearching = !_isSearching;
-      if (!_isSearching) {
-        _searchController.clear();
-        _textSearcher?.resetTextSearch();
-      }
-    });
+  void _toggleSearch(BuildContext context, bool isSearching) {
+    context.read<PdfReaderBloc>().add(ToggleSearchEvent());
+    if (isSearching) {
+      // It's currently true, toggling to false
+      _searchController.clear();
+      _textSearcher?.resetTextSearch();
+    }
   }
 
   void _performSearch(String query) {
@@ -164,7 +162,13 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     if (endPage < startPage) endPage = startPage;
 
                     Navigator.pop(ctx);
-                    _executeSummarization(startPage, endPage);
+                    context.read<PdfReaderBloc>().add(
+                      SummarizePagesEvent(
+                        startPage: startPage,
+                        endPage: endPage,
+                        bookTitle: widget.book.title,
+                      ),
+                    );
                   },
                   child: const Text(
                     'تلخيص',
@@ -183,247 +187,251 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     );
   }
 
-  Future<void> _executeSummarization(int startPage, int endPage) async {
-    setState(() => _isSummarizing = true);
-
-    try {
-      NotificationService.showNotification(
-        id: 7,
-        title: 'Extracting Arabic Text',
-        body: 'Running OCR on pages $startPage to $endPage...',
-      );
-
-      // Simulate OCR extraction for now to keep it lightweight,
-      // or retrieve real text if standard pdfrx text retrieval is available.
-      await Future.delayed(const Duration(seconds: 2));
-
-      String extractedText =
-          "Extracted text payload from pages $startPage to $endPage from the book ${widget.book.title}.";
-
-      final summary = await GeminiService.summarizeExcerpt(
-        extractedText,
-        startPage,
-        endPage,
-      );
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: VintageTheme.inkDark,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: VintageTheme.vintageGold, width: 2),
-            ),
-            title: const Text(
-              'خلاصة الآباء', // "Fathers' Insight/Summary"
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: VintageTheme.vintageGold,
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Text(
-                summary,
-                textDirection: TextDirection.rtl,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  height: 1.8,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            actionsAlignment: MainAxisAlignment.center,
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  backgroundColor: VintageTheme.deeperParchment.withOpacity(
-                    0.1,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: const BorderSide(color: VintageTheme.vintageGold),
-                  ),
-                ),
-                child: const Text(
-                  'إغلاق', // "Close"
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        NotificationService.showNotification(
-          id: 8,
-          title: 'Summarization Failed',
-          body: e.toString(),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSummarizing = false);
-    }
-  }
+  // _executeSummarization is handled by the BLoC now
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: NotificationListener<UserScrollNotification>(
-        onNotification: (notification) {
-          if (notification.direction == ScrollDirection.reverse) {
-            if (_isUIVisible) setState(() => _isUIVisible = false);
-          } else if (notification.direction == ScrollDirection.forward) {
-            if (!_isUIVisible) setState(() => _isUIVisible = true);
-          }
-          return false;
-        },
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: PdfViewer.uri(
-                Uri.parse(
-                  'https://drive.google.com/uc?export=download&id=${widget.book.id}',
-                ),
-                controller: _pdfController,
-                params: const PdfViewerParams(
+    return BlocProvider(
+      create: (_) => PdfReaderBloc(),
+      child: BlocConsumer<PdfReaderBloc, PdfReaderState>(
+        listener: (context, state) {
+          if (state is PdfReaderSummarySuccess) {
+            if (mounted) {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
                   backgroundColor: VintageTheme.inkDark,
-                ),
-              ),
-            ),
-
-            if (_isSearching)
-              Positioned(
-                bottom:
-                    MediaQuery.of(context).padding.bottom +
-                    85, // Show above floating action buttons
-                left: 16,
-                right: 16,
-                child: PdfSearchBar(
-                  controller: _searchController,
-                  textSearcher: _textSearcher,
-                  onClose: _toggleSearch,
-                  onSubmitted: _performSearch,
-                ),
-              ),
-
-            // Animated App Bar
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
-              top: _isUIVisible
-                  ? 0
-                  : -(kToolbarHeight + MediaQuery.of(context).padding.top),
-              left: 0,
-              right: 0,
-              height: kToolbarHeight + MediaQuery.of(context).padding.top,
-              child: Material(
-                elevation: 4,
-                color: VintageTheme.inkDark,
-                child: Container(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(
+                      color: VintageTheme.vintageGold,
+                      width: 2,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
+                  title: const Text(
+                    'خلاصة الآباء', // "Fathers' Insight/Summary"
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: VintageTheme.vintageGold,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                  ),
+                  content: SingleChildScrollView(
+                    child: Text(
+                      state.summary,
+                      textDirection: TextDirection.rtl,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        height: 1.8,
+                        fontWeight: FontWeight.w500,
                       ),
-                      Expanded(
-                        child: Hero(
-                          tag: 'book_title_${widget.book.id}',
-                          child: Material(
-                            type: MaterialType.transparency,
-                            child: Text(
-                              widget.book.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                    ),
+                  ),
+                  actionsAlignment: MainAxisAlignment.center,
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        backgroundColor: VintageTheme.deeperParchment
+                            .withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: const BorderSide(
+                            color: VintageTheme.vintageGold,
                           ),
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(
-                          _isSearching ? Icons.search_off : Icons.search,
-                          color: Colors.white,
-                        ),
-                        onPressed: _toggleSearch,
-                        tooltip: 'Find text',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            if (_isSummarizing)
-              Container(
-                color: Colors.black87,
-                child: const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(
-                        color: VintageTheme.vintageGold,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'جاري الرجوع لآباء الكنيسة...', // Consulting the Fathers...
+                      child: const Text(
+                        'إغلاق', // "Close"
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
-                        textDirection: TextDirection.rtl,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
+              );
+            }
+          }
+        },
+        builder: (context, state) {
+          return Scaffold(
+            backgroundColor: Colors.black,
+            body: NotificationListener<UserScrollNotification>(
+              onNotification: (notification) {
+                if (notification.direction == ScrollDirection.reverse) {
+                  if (state.isUIVisible) {
+                    context.read<PdfReaderBloc>().add(
+                      ToggleUIVisibilityEvent(false),
+                    );
+                  }
+                } else if (notification.direction == ScrollDirection.forward) {
+                  if (!state.isUIVisible) {
+                    context.read<PdfReaderBloc>().add(
+                      ToggleUIVisibilityEvent(true),
+                    );
+                  }
+                }
+                return false;
+              },
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: PdfViewer.uri(
+                      Uri.parse(
+                        'https://drive.google.com/uc?export=download&id=${widget.book.id}',
+                      ),
+                      controller: _pdfController,
+                      params: PdfViewerParams(
+                        backgroundColor: VintageTheme.inkDark,
+                        onViewerReady: (document, controller) {
+                          if (mounted && _textSearcher == null) {
+                            setState(() {
+                              _textSearcher = PdfTextSearcher(controller)
+                                ..addListener(_onSearcherUpdated);
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
 
-            // Animated Floating Action Button
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
-              bottom: _isUIVisible ? 16 : -80,
-              right: 16,
-              child: FloatingActionButton.extended(
-                backgroundColor: VintageTheme.inkFaded,
-                onPressed: _showSummarizeDialog,
-                icon: const Icon(
-                  Icons.auto_awesome,
-                  color: VintageTheme.vintageGold,
-                  size: 28,
-                ),
-                label: const Text(
-                  'تلخيص',
-                  style: TextStyle(
-                    color: VintageTheme.vintageGold,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  if (state.isSearching)
+                    Positioned(
+                      bottom:
+                          MediaQuery.of(context).padding.bottom +
+                          85, // Show above floating action buttons
+                      left: 16,
+                      right: 16,
+                      child: PdfSearchBar(
+                        controller: _searchController,
+                        textSearcher: _textSearcher,
+                        onClose: () => _toggleSearch(context, true),
+                        onSubmitted: _performSearch,
+                      ),
+                    ),
+
+                  // Animated App Bar
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 300),
+                    top: state.isUIVisible
+                        ? 0
+                        : -(kToolbarHeight +
+                              MediaQuery.of(context).padding.top),
+                    left: 0,
+                    right: 0,
+                    height: kToolbarHeight + MediaQuery.of(context).padding.top,
+                    child: Material(
+                      elevation: 4,
+                      color: VintageTheme.inkDark,
+                      child: Container(
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top,
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: Colors.white,
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            Expanded(
+                              child: Hero(
+                                tag: 'book_title_${widget.book.id}',
+                                child: Material(
+                                  type: MaterialType.transparency,
+                                  child: Text(
+                                    widget.book.title,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                state.isSearching
+                                    ? Icons.search_off
+                                    : Icons.search,
+                                color: Colors.white,
+                              ),
+                              onPressed: () =>
+                                  _toggleSearch(context, state.isSearching),
+                              tooltip: 'Find text',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+
+                  if (state.isSummarizing)
+                    Container(
+                      color: Colors.black87,
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: VintageTheme.vintageGold,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'جاري الرجوع لآباء الكنيسة...', // Consulting the Fathers...
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textDirection: TextDirection.rtl,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Animated Floating Action Button
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 300),
+                    bottom: state.isUIVisible ? 16 : -80,
+                    right: 16,
+                    child: FloatingActionButton.extended(
+                      backgroundColor: VintageTheme.inkFaded,
+                      onPressed: _showSummarizeDialog,
+                      icon: const Icon(
+                        Icons.auto_awesome,
+                        color: VintageTheme.vintageGold,
+                        size: 28,
+                      ),
+                      label: const Text(
+                        'تلخيص',
+                        style: TextStyle(
+                          color: VintageTheme.vintageGold,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

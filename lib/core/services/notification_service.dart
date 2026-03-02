@@ -6,7 +6,7 @@ class NotificationService {
 
   static Future<void> initialize() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_notification');
 
     // Request permission on initialization for newer Android versions
     _notificationsPlugin
@@ -66,7 +66,7 @@ class NotificationService {
           channelDescription: 'Notifies when an upload is complete or failed',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         );
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
@@ -92,7 +92,7 @@ class NotificationService {
           channelDescription: 'General app notifications and alerts',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         );
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
