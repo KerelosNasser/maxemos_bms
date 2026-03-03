@@ -81,26 +81,62 @@ class PdfCacheService {
         );
       }
 
-      // Google Drive handles large files by showing an HTML virus scan warning.
+      // Google Drive handles large files (>24MB) by showing an HTML virus scan warning.
       // E.g. contentType = "text/html; charset=utf-8"
       final contentType = response.headers.contentType?.mimeType ?? '';
       if (contentType == 'text/html') {
         final htmlContent = await utf8.decodeStream(response);
-        // Look for the confirmation token the download button uses
-        final confirmMatch = RegExp(
-          r'confirm=([a-zA-Z0-9_\-]+)',
+
+        // Scraping the required form fields from the HTML warning page
+        final actionMatch = RegExp(
+          r'<form id="download-form" action="([^"]+)"',
         ).firstMatch(htmlContent);
-        if (confirmMatch != null) {
-          final confirmToken = confirmMatch.group(1);
-          final newUrl = '$downloadUrl&confirm=$confirmToken';
+        final confirmMatch = RegExp(
+          r'<input type="hidden" name="confirm" value="([^"]+)">',
+        ).firstMatch(htmlContent);
+        final idMatch = RegExp(
+          r'<input type="hidden" name="id" value="([^"]+)">',
+        ).firstMatch(htmlContent);
+        final uuidMatch = RegExp(
+          r'<input type="hidden" name="uuid" value="([^"]+)">',
+        ).firstMatch(htmlContent);
+
+        if (actionMatch != null &&
+            confirmMatch != null &&
+            idMatch != null &&
+            uuidMatch != null) {
+          final action = actionMatch.group(1)!;
+          final confirmToken = confirmMatch.group(1)!;
+          final idToken = idMatch.group(1)!;
+          final uuidToken = uuidMatch.group(1)!;
+
+          // The form must be submitted using a GET request with all hidden params
+          // to bypass the virus check for files >24MB.
+          final bypassUrl =
+              '$action?export=download&id=$idToken&confirm=$confirmToken&uuid=$uuidToken';
+
           client.close();
-          // Retry gracefully with the acquired confirm token
+          // Retry gracefully with the bypass URL
           return getCachedPdf(
             bookId: bookId,
-            downloadUrl: newUrl,
+            downloadUrl: bypassUrl,
             onProgress: onProgress,
           );
         } else {
+          // Fallback legacy bypass
+          final oldConfirmMatch = RegExp(
+            r'confirm=([a-zA-Z0-9_\-]+)',
+          ).firstMatch(htmlContent);
+          if (oldConfirmMatch != null) {
+            final confirmToken = oldConfirmMatch.group(1);
+            final newUrl = '$downloadUrl&confirm=$confirmToken';
+            client.close();
+            return getCachedPdf(
+              bookId: bookId,
+              downloadUrl: newUrl,
+              onProgress: onProgress,
+            );
+          }
           throw HttpException(
             'Encountered an HTML block page instead of PDF (e.g., captive portal or rate limit).',
           );

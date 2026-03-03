@@ -10,10 +10,26 @@ import 'presentation/bloc/dashboard_cubit.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/services/notification_service.dart';
 
+import 'core/utils/logger.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
-  await NotificationService.initialize();
+
+  // Safe environment loading -- prevents boot crash
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    logger.e("Failed to load .env file during boot: $e");
+  }
+
+  // Safe notification initialization -- prevents boot crash
+  try {
+    await NotificationService.initialize();
+  } catch (e) {
+    logger.e("Failed to initialize NotificationService during boot: $e");
+  }
+
+  // Guarantees the UI renders no matter what auxiliary services fail
   runApp(const MaxemosBMSApp());
 }
 
