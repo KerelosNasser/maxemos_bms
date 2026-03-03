@@ -34,6 +34,11 @@ class PdfSearchIndexer {
   bool? _needsOcr;
   int _searchSession = 0;
 
+  // -- Background OCR Cache Window --
+  final Set<int> _ocrCacheQueue = {};
+  bool _isBackgroundOcrRunning = false;
+  int _cacheWindowSession = 0;
+
   final List<VoidCallback> _listeners = [];
 
   PdfSearchIndexer(this.controller) {
@@ -93,6 +98,11 @@ class PdfSearchIndexer {
     }
   }
 
+  /// Called proactively by the UI when a document is opened.
+  Future<void> startBackgroundPreloading() async {
+    _needsOcr ??= await _detectNeedsOcr();
+  }
+
   void resetSearch() {
     ++_searchSession;
     _isSearching = false;
@@ -133,8 +143,12 @@ class PdfSearchIndexer {
 
   Future<bool> _detectNeedsOcr() async {
     bool hasArabic = false;
+    int curr = 1;
+    int total = 1;
+
     await controller.useDocument((doc) async {
-      final limit = doc.pages.length < 5 ? doc.pages.length : 5;
+      total = doc.pages.length;
+      final limit = total < 5 ? total : 5;
       for (int i = 0; i < limit; i++) {
         final t = await doc.pages[i].loadStructuredText();
         if (_arabicRe.hasMatch(t.fullText)) {
@@ -143,6 +157,13 @@ class PdfSearchIndexer {
         }
       }
     });
+
+    if (!hasArabic) {
+      // It's image-based, kickstart the background pre-indexer.
+      curr = controller.pageNumber ?? 1;
+      updateCacheWindow(curr, total);
+    }
+
     return !hasArabic;
   }
 
@@ -156,6 +177,68 @@ class PdfSearchIndexer {
     _isSearching = false;
   }
 
+  /// Updates the sliding window of pages to preprocess in the background.
+  void updateCacheWindow(int currentPage, int totalPages) {
+    if (_needsOcr != true) return; // Only process if we actually need OCR
+
+    final radius = 7; // +/- 7 pages = 15 pages total
+    _cacheWindowSession++;
+    _ocrCacheQueue.clear();
+
+    // 1. Current page holds highest priority
+    _ocrCacheQueue.add(currentPage);
+
+    // 2. Expand outward
+    for (int offset = 1; offset <= radius; offset++) {
+      if (currentPage + offset <= totalPages)
+        _ocrCacheQueue.add(currentPage + offset);
+      if (currentPage - offset >= 1) _ocrCacheQueue.add(currentPage - offset);
+    }
+
+    // 3. Remove what is already perfectly cached
+    _ocrCacheQueue.removeWhere((p) => _ocrCache.containsKey(p));
+
+    if (!_isBackgroundOcrRunning && _ocrCacheQueue.isNotEmpty) {
+      _runBackgroundOcr();
+    }
+  }
+
+  Future<void> _runBackgroundOcr() async {
+    _isBackgroundOcrRunning = true;
+    final int session = _cacheWindowSession;
+
+    try {
+      while (_ocrCacheQueue.isNotEmpty) {
+        if (session != _cacheWindowSession || !controller.isReady) break;
+
+        // Pop the highest priority page
+        final int pageNum = _ocrCacheQueue.first;
+        _ocrCacheQueue.remove(pageNum);
+
+        if (_ocrCache.containsKey(pageNum)) continue;
+
+        final PageOcrData? data = await controller.useDocument<PageOcrData?>((
+          doc,
+        ) async {
+          if (pageNum < 1 || pageNum > doc.pages.length) return null;
+          final page = doc.pages[pageNum - 1];
+          return await _buildPageOcrData(page);
+        });
+
+        if (data != null) {
+          _ocrCache[pageNum] = data;
+        }
+
+        // Extremely short yield to avoid freezing scrolling
+        await Future.delayed(const Duration(milliseconds: 10));
+      }
+    } finally {
+      if (session == _cacheWindowSession) {
+        _isBackgroundOcrRunning = false;
+      }
+    }
+  }
+
   Future<void> _searchOcr(String query, int session) async {
     final nq = ArabicTextNormalizer.normalize(query);
     _ocrMatches.clear();
@@ -163,50 +246,86 @@ class PdfSearchIndexer {
     _ocrIndex = null;
     _notify();
 
+    // ── Phase 1: Instant search through pre-cached window ──
     await controller.useDocument((doc) async {
       for (final page in doc.pages) {
         if (session != _searchSession) return;
 
-        // ── Get or build page data ──
-        PageOcrData? data = _ocrCache[page.pageNumber];
-        if (data == null) {
-          data = await _buildPageOcrData(page);
-          if (data != null) {
-            _ocrCache[page.pageNumber] = data;
-          }
-        }
+        final data = _ocrCache[page.pageNumber];
         if (data == null || data.normalizedText.isEmpty) continue;
 
-        // ── Find all occurrences – O(n·m) via indexOf ──
-        final nt = data.normalizedText;
-        int from = 0;
-        while (true) {
-          final idx = nt.indexOf(nq, from);
-          if (idx == -1) break;
+        _findMatchesInOcrData(data, nq, page);
+      }
+      _rebuildMatchesByPage();
+    });
 
-          _ocrMatches.add(
-            OcrMatch(
-              pageNumber: page.pageNumber,
-              yPdf: _yForCharIndex(data, idx, page),
-            ),
-          );
-          from = idx + 1;
+    if (session != _searchSession) return;
+
+    // If we instantly found a match in our cached window, jump immediately
+    if (_ocrMatches.isNotEmpty) {
+      _ocrIndex = 0;
+      _goToOcrMatch();
+      // UX improvement: We found *something*, so spin down the UI loading indicator.
+      // The background search continues silently.
+      _isSearching = false;
+      _notify();
+    }
+
+    // ── Phase 2: Lazy search for remaining, uncached pages ──
+    await controller.useDocument((doc) async {
+      for (final page in doc.pages) {
+        if (session != _searchSession) return;
+
+        // Skip what we already searched in Phase 1
+        if (_ocrCache.containsKey(page.pageNumber)) continue;
+
+        final data = await _buildPageOcrData(page);
+        if (data != null) {
+          _ocrCache[page.pageNumber] = data;
+
+          if (data.normalizedText.isNotEmpty) {
+            final hadMatches = _ocrMatches.isNotEmpty;
+            _findMatchesInOcrData(data, nq, page);
+
+            if (_ocrMatches.length > (hadMatches ? _ocrMatches.length : 0)) {
+              _rebuildMatchesByPage();
+
+              // If this is our very first match and the loader is still spinning
+              if (!hadMatches && _ocrIndex == null) {
+                _ocrIndex = 0;
+                _goToOcrMatch();
+                _isSearching = false; // Turn off loader!
+              }
+              _notify(); // Update search UI counter smoothly
+            }
+          }
         }
-
-        // Rebuild page-indexed map incrementally so paint sees matches
-        _rebuildMatchesByPage();
-        _notify();
       }
     });
 
     if (session != _searchSession) return;
 
-    if (_ocrMatches.isNotEmpty) {
-      _ocrIndex = 0;
-      _goToOcrMatch();
+    if (_isSearching) {
+      _isSearching = false;
+      _notify(); // Turn off loader if no matches were ever found
     }
-    _isSearching = false;
-    _notify();
+  }
+
+  void _findMatchesInOcrData(PageOcrData data, String nq, PdfPage page) {
+    final nt = data.normalizedText;
+    int from = 0;
+    while (true) {
+      final idx = nt.indexOf(nq, from);
+      if (idx == -1) break;
+
+      _ocrMatches.add(
+        OcrMatch(
+          pageNumber: page.pageNumber,
+          yPdf: _yForCharIndex(data, idx, page),
+        ),
+      );
+      from = idx + 1;
+    }
   }
 
   /// Build cached OCR data for one page:

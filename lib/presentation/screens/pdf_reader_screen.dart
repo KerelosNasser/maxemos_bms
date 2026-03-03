@@ -18,6 +18,9 @@ import '../widgets/pdf_page_scrubber.dart';
 import '../widgets/pdf/pdf_download_progress_view.dart';
 import '../widgets/pdf/pdf_download_error_view.dart';
 import '../widgets/pdf/pdf_summarize_overlay.dart';
+import '../../core/utils/scriptural_regex_engine.dart';
+import '../widgets/verse_overlay_sheet.dart';
+import '../widgets/lexicon_overlay_sheet.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final Book book;
@@ -62,6 +65,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
     return BlocProvider(
       create: (_) => PdfReaderBloc()
+        ..add(LoadPreferencesEvent())
         ..add(LoadHighlightsEvent(book.id))
         ..add(DownloadPdfEvent(bookId: book.id, downloadUrl: downloadUrl)),
       child: Builder(
@@ -113,9 +117,6 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   ) {
     return Listener(
       onPointerMove: (event) {
-        // Detect drag direction from raw pointer events.
-        // PdfViewer uses InteractiveViewer internally, so
-        // UserScrollNotification is never dispatched.
         if (event.delta.dy < -4 && state.isUIVisible) {
           bloc.add(ToggleUIVisibilityEvent(false));
         } else if (event.delta.dy > 4 && !state.isUIVisible) {
@@ -126,37 +127,85 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         children: [
           // === PDF Viewer (from cached file) ===
           Positioned.fill(
-            child: PdfViewer.file(
-              state.pdfFilePath!,
-              controller: bloc.pdfController,
-              params: PdfViewerParams(
-                backgroundColor: VintageTheme.inkDark,
-                onViewerReady: (document, controller) {
-                  bloc.initSearcher(document, controller);
-                },
-                pagePaintCallbacks: [
-                  if (bloc.textSearcher != null)
-                    bloc.textSearcher!.pageTextMatchPaintCallback,
-                ],
-                textSelectionParams: PdfTextSelectionParams(
-                  enabled: true,
-                  onTextSelectionChange: (selections) async {
-                    final text = await selections.getSelectedText();
-                    if (text.isNotEmpty) {
-                      bloc.add(
-                        SetSelectedTextEvent(
-                          text: text,
-                          pageNumber: bloc.pdfController.pageNumber ?? 1,
-                        ),
-                      );
-                    } else {
-                      bloc.add(ClearSelectedTextEvent());
-                    }
+            child: ColorFiltered(
+              colorFilter: state.isSepiaModeEnabled
+                  ? const ColorFilter.matrix([
+                      0.393, 0.769, 0.189, 0, 0, // Red
+                      0.349, 0.686, 0.168, 0, 0, // Green
+                      0.272, 0.534, 0.131, 0, 0, // Blue
+                      0, 0, 0, 1, 0, // Alpha
+                    ])
+                  : const ColorFilter.mode(
+                      Colors.transparent,
+                      BlendMode.multiply,
+                    ),
+              child: PdfViewer.file(
+                state.pdfFilePath!,
+                controller: bloc.pdfController,
+                params: PdfViewerParams(
+                  backgroundColor: VintageTheme.inkDark,
+                  onViewerReady: (document, controller) {
+                    bloc.initSearcher(document, controller);
                   },
+                  pagePaintCallbacks: [
+                    if (bloc.textSearcher != null)
+                      bloc.textSearcher!.pageTextMatchPaintCallback,
+                  ],
+                  textSelectionParams: PdfTextSelectionParams(
+                    enabled: true,
+                    onTextSelectionChange: (selections) async {
+                      final text = await selections.getSelectedText();
+                      if (text.isNotEmpty) {
+                        bloc.add(
+                          SetSelectedTextEvent(
+                            text: text,
+                            pageNumber: bloc.pdfController.pageNumber ?? 1,
+                          ),
+                        );
+                      } else {
+                        bloc.add(ClearSelectedTextEvent());
+                      }
+                    },
+                  ),
                 ),
               ),
             ),
           ),
+
+          // === Edge Navigation Zones (Optional) ===
+          if (state.isNavigationZonesEnabled) ...[
+            Positioned(
+              left: 0,
+              top: kToolbarHeight + topPadding,
+              bottom: 80,
+              width: MediaQuery.of(context).size.width * 0.15,
+              child: GestureDetector(
+                onTap: () {
+                  final current = bloc.pdfController.pageNumber ?? 1;
+                  if (current > 1) {
+                    bloc.pdfController.goToPage(pageNumber: current - 1);
+                  }
+                },
+                behavior: HitTestBehavior.translucent,
+              ),
+            ),
+            Positioned(
+              right: 0,
+              top: kToolbarHeight + topPadding,
+              bottom: 80,
+              width: MediaQuery.of(context).size.width * 0.15,
+              child: GestureDetector(
+                onTap: () {
+                  final current = bloc.pdfController.pageNumber ?? 1;
+                  final total = bloc.pdfController.pageCount;
+                  if (current < total) {
+                    bloc.pdfController.goToPage(pageNumber: current + 1);
+                  }
+                },
+                behavior: HitTestBehavior.translucent,
+              ),
+            ),
+          ],
 
           // === Search Bar ===
           if (state.isSearching)
@@ -199,12 +248,95 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           // === Summarize Loading Overlay ===
           if (state.isSummarizing) const PdfSummarizeOverlay(),
 
-          // === Highlight Action Button ===
+          // === Highlight & Bible Action Buttons ===
           if (state.selectedText != null && state.selectedText!.isNotEmpty)
             Positioned(
               bottom: 80 + MediaQuery.of(context).viewInsets.bottom,
               left: 16,
-              child: HighlightActionButton(bookId: book.id),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  HighlightActionButton(bookId: book.id),
+                  Builder(
+                    builder: (btnContext) {
+                      final text = state.selectedText!;
+                      final refs = ScripturalRegexEngine.parse(text);
+                      final isSingleWord =
+                          !text.trim().contains(' ') && text.trim().length >= 3;
+
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (refs.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8.0),
+                              child: FloatingActionButton.extended(
+                                heroTag: 'bible_verse_btn',
+                                backgroundColor: VintageTheme.parchmentLight,
+                                onPressed: () {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (_) => VerseOverlaySheet(
+                                      reference: refs.first,
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(
+                                  Icons.menu_book_rounded,
+                                  color: VintageTheme.inkDark,
+                                ),
+                                label: Text(
+                                  'عرض ${refs.first.toString()}',
+                                  style: const TextStyle(
+                                    fontFamily: 'Amiri',
+                                    color: VintageTheme.inkDark,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (isSingleWord)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8.0),
+                              child: FloatingActionButton.extended(
+                                heroTag: 'lexicon_btn',
+                                backgroundColor: VintageTheme.parchmentLight,
+                                onPressed: () {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (_) => LexiconOverlaySheet(
+                                      selectedText: text.trim(),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(
+                                  Icons.import_contacts_rounded,
+                                  color: VintageTheme.inkDark,
+                                ),
+                                label: const Text(
+                                  'القاموس',
+                                  style: TextStyle(
+                                    fontFamily: 'Amiri',
+                                    color: VintageTheme.inkDark,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (refs.isEmpty && !isSingleWord)
+                            const SizedBox.shrink(),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
 
           // === Summarize FAB ===

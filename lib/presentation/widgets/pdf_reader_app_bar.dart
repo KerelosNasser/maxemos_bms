@@ -3,9 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/vintage_theme.dart';
 import '../bloc/pdf_reader_bloc.dart';
 import '../bloc/pdf_reader_event.dart';
+import 'pdf_preferences_sheet.dart';
 
-/// Animated collapsible app bar content for the PDF reader.
-/// Must be wrapped in AnimatedPositioned by the parent Stack.
+
 class PdfReaderAppBarContent extends StatelessWidget {
   final String bookId;
   final String bookTitle;
@@ -51,6 +51,17 @@ class PdfReaderAppBarContent extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.tune, color: Colors.white),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => PdfPreferencesSheet(bloc: bloc, state: state),
+                );
+              },
+              tooltip: 'خيارات القراءة',
             ),
             IconButton(
               icon: Icon(

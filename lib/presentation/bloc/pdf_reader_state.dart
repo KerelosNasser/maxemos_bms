@@ -33,6 +33,10 @@ class PdfReaderState extends Equatable {
   final String? selectedText;
   final int? selectedPageNumber;
 
+  // Accessibility Preferences
+  final bool isSepiaModeEnabled;
+  final bool isNavigationZonesEnabled;
+
   const PdfReaderState({
     this.pdfFilePath,
     required this.isDownloading,
@@ -51,6 +55,8 @@ class PdfReaderState extends Equatable {
     required this.isHighlightPanelOpen,
     this.selectedText,
     this.selectedPageNumber,
+    required this.isSepiaModeEnabled,
+    required this.isNavigationZonesEnabled,
   });
 
   factory PdfReaderState.initial() {
@@ -72,6 +78,8 @@ class PdfReaderState extends Equatable {
       isHighlightPanelOpen: false,
       selectedText: null,
       selectedPageNumber: null,
+      isSepiaModeEnabled: false,
+      isNavigationZonesEnabled: false,
     );
   }
 
@@ -95,6 +103,8 @@ class PdfReaderState extends Equatable {
     String? selectedText,
     int? selectedPageNumber,
     bool clearSelectedText = false,
+    bool? isSepiaModeEnabled,
+    bool? isNavigationZonesEnabled,
   }) {
     return PdfReaderState(
       pdfFilePath: pdfFilePath ?? this.pdfFilePath,
@@ -120,6 +130,9 @@ class PdfReaderState extends Equatable {
       selectedPageNumber: clearSelectedText
           ? null
           : (selectedPageNumber ?? this.selectedPageNumber),
+      isSepiaModeEnabled: isSepiaModeEnabled ?? this.isSepiaModeEnabled,
+      isNavigationZonesEnabled:
+          isNavigationZonesEnabled ?? this.isNavigationZonesEnabled,
     );
   }
 
@@ -142,5 +155,7 @@ class PdfReaderState extends Equatable {
     isHighlightPanelOpen,
     selectedText,
     selectedPageNumber,
+    isSepiaModeEnabled,
+    isNavigationZonesEnabled,
   ];
 }

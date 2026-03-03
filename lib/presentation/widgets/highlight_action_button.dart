@@ -4,6 +4,7 @@ import '../../core/theme/vintage_theme.dart';
 import '../../data/models/highlight.dart';
 import '../bloc/pdf_reader_bloc.dart';
 import '../bloc/pdf_reader_event.dart';
+import 'sermon_folder_selection_sheet.dart';
 
 /// The inner content of the floating "Save Highlight" button.
 /// Returns SizedBox.shrink() when no text is selected.
@@ -28,31 +29,14 @@ class HighlightActionButton extends StatelessWidget {
       color: VintageTheme.inkDark.withOpacity(0.95),
       child: InkWell(
         onTap: () {
-          bloc.add(
-            AddHighlightEvent(
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => SermonFolderSelectionSheet(
               bookId: bookId,
-              highlight: Highlight(
-                pageNumber: state.selectedPageNumber ?? 1,
-                text: state.selectedText!,
-              ),
-            ),
-          );
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'تم حفظ العلامة',
-                textDirection: TextDirection.rtl,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              backgroundColor: VintageTheme.inkFaded,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              duration: const Duration(seconds: 2),
+              pageNumber: state.selectedPageNumber ?? 1,
+              selectedText: state.selectedText!,
             ),
           );
         },

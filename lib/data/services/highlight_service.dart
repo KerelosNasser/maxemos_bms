@@ -45,4 +45,44 @@ class HighlightService {
     final jsonString = json.encode(highlights.map((h) => h.toJson()).toList());
     await prefs.setString('$_keyPrefix$bookId', jsonString);
   }
+
+  /// Retrieves all highlights across all scattered books.
+  static Future<List<Highlight>> getAllHighlights() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs
+        .getKeys()
+        .where((k) => k.startsWith(_keyPrefix))
+        .toList();
+
+    List<Highlight> allHighlights = [];
+    for (String key in keys) {
+      final jsonString = prefs.getString(key);
+      if (jsonString != null && jsonString.isNotEmpty) {
+        try {
+          final List<dynamic> jsonList =
+              json.decode(jsonString) as List<dynamic>;
+          allHighlights.addAll(
+            jsonList.map((e) => Highlight.fromJson(e as Map<String, dynamic>)),
+          );
+        } catch (_) {
+          // Ignore corrupted book highlights
+        }
+      }
+    }
+
+    allHighlights.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return allHighlights;
+  }
+
+  /// Extracts unique sermon folder/tag names used across all highlights.
+  static Future<List<String>> getSermonFolders() async {
+    final allHighlights = await getAllHighlights();
+    final Set<String> folders = {};
+    for (var highlight in allHighlights) {
+      if (highlight.folderId != null && highlight.folderId!.trim().isNotEmpty) {
+        folders.add(highlight.folderId!.trim());
+      }
+    }
+    return folders.toList()..sort();
+  }
 }

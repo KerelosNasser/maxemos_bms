@@ -7,6 +7,7 @@ class Highlight {
   final int colorValue;
   final DateTime createdAt;
   final String? note;
+  final String? folderId;
 
   Highlight({
     String? id,
@@ -15,8 +16,9 @@ class Highlight {
     this.colorValue = 0xFFB8860B, // vintageGold default
     DateTime? createdAt,
     this.note,
-  })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now();
+    this.folderId,
+  }) : id = id ?? const Uuid().v4(),
+       createdAt = createdAt ?? DateTime.now();
 
   factory Highlight.fromJson(Map<String, dynamic> json) {
     return Highlight(
@@ -26,6 +28,7 @@ class Highlight {
       colorValue: json['colorValue'] as int? ?? 0xFFB8860B,
       createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
       note: json['note'] as String?,
+      folderId: json['folderId'] as String?,
     );
   }
 
@@ -37,6 +40,7 @@ class Highlight {
       'colorValue': colorValue,
       'createdAt': createdAt.toIso8601String(),
       'note': note,
+      'folderId': folderId,
     };
   }
 
@@ -47,6 +51,7 @@ class Highlight {
     int? colorValue,
     DateTime? createdAt,
     String? note,
+    String? folderId,
   }) {
     return Highlight(
       id: id ?? this.id,
@@ -55,6 +60,7 @@ class Highlight {
       colorValue: colorValue ?? this.colorValue,
       createdAt: createdAt ?? this.createdAt,
       note: note ?? this.note,
+      folderId: folderId ?? this.folderId,
     );
   }
 

@@ -106,3 +106,10 @@ class SetSelectedTextEvent extends PdfReaderEvent {
 }
 
 class ClearSelectedTextEvent extends PdfReaderEvent {}
+
+// --- Accessibility/Ergonomics Events ---
+class LoadPreferencesEvent extends PdfReaderEvent {}
+
+class ToggleSepiaModeEvent extends PdfReaderEvent {}
+
+class ToggleNavigationZonesEvent extends PdfReaderEvent {}

@@ -10,6 +10,7 @@ import 'mixins/pdf_zoom_mixin.dart';
 import 'mixins/pdf_highlight_mixin.dart';
 import 'mixins/pdf_summarize_mixin.dart';
 import 'mixins/pdf_download_mixin.dart';
+import 'mixins/pdf_preferences_mixin.dart';
 
 class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState>
     with
@@ -17,11 +18,17 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState>
         PdfZoomMixin,
         PdfHighlightMixin,
         PdfSummarizeMixin,
-        PdfDownloadMixin {
+        PdfDownloadMixin,
+        PdfPreferencesMixin {
   @override
   final PdfViewerController pdfController = PdfViewerController();
 
   PdfReaderBloc() : super(PdfReaderState.initial()) {
+    // Preferences Handling
+    on<LoadPreferencesEvent>(onLoadPreferences);
+    on<ToggleSepiaModeEvent>(onToggleSepiaMode);
+    on<ToggleNavigationZonesEvent>(onToggleNavigationZones);
+
     // Download
     on<DownloadPdfEvent>(onDownloadPdf);
     on<DownloadProgressEvent>(onDownloadProgress);
@@ -55,6 +62,11 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState>
     on<ToggleHighlightPanelEvent>(onToggleHighlightPanel);
     on<SetSelectedTextEvent>(onSetSelectedText);
     on<ClearSelectedTextEvent>(onClearSelectedText);
+
+    // --- Preferences Handling ---
+    on<LoadPreferencesEvent>(onLoadPreferences);
+    on<ToggleSepiaModeEvent>(onToggleSepiaMode);
+    on<ToggleNavigationZonesEvent>(onToggleNavigationZones);
   }
 
   @override
@@ -105,6 +117,8 @@ class PdfReaderSummarySuccess extends PdfReaderState {
         isSummarizing: false,
         highlights: state.highlights,
         isHighlightPanelOpen: state.isHighlightPanelOpen,
+        isSepiaModeEnabled: state.isSepiaModeEnabled,
+        isNavigationZonesEnabled: state.isNavigationZonesEnabled,
       );
 }
 
@@ -128,5 +142,7 @@ class PdfReaderSummaryFailure extends PdfReaderState {
         isSummarizing: false,
         highlights: state.highlights,
         isHighlightPanelOpen: state.isHighlightPanelOpen,
+        isSepiaModeEnabled: state.isSepiaModeEnabled,
+        isNavigationZonesEnabled: state.isNavigationZonesEnabled,
       );
 }

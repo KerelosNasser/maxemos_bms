@@ -16,10 +16,9 @@ mixin PdfSearchMixin on Bloc<PdfReaderEvent, PdfReaderState> {
   PdfViewerController get pdfController;
 
   void initSearcher(PdfDocument document, PdfViewerController controller) {
-    if (textSearcher == null) {
-      textSearcher = PdfSearchIndexer(controller)
-        ..addListener(_onSearcherUpdate);
-    }
+    textSearcher ??= PdfSearchIndexer(controller)
+        ..addListener(_onSearcherUpdate)
+        ..startBackgroundPreloading();
     if (_trackedController == null) {
       _trackedController = controller;
       controller.addListener(_onControllerUpdate);
@@ -30,8 +29,13 @@ mixin PdfSearchMixin on Bloc<PdfReaderEvent, PdfReaderState> {
   void _onControllerUpdate() {
     final ctrl = _trackedController;
     if (ctrl == null || !ctrl.isReady) return;
+
     final page = ctrl.pageNumber ?? 1;
     final total = ctrl.pageCount;
+
+    // Slidng window OCR update (invisible if caching isn't needed)
+    textSearcher?.updateCacheWindow(page, total);
+
     if (page != state.currentPage || total != state.totalPages) {
       add(PageChangedEvent(currentPage: page, totalPages: total));
     }
