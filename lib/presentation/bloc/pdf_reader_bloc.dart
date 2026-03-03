@@ -6,13 +6,14 @@ import '../../core/services/gemini_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../data/services/pdf_cache_service.dart';
 import '../../data/services/highlight_service.dart';
+import '../../data/services/pdf_search_indexer.dart';
 import 'pdf_reader_event.dart';
 import 'pdf_reader_state.dart';
 
 class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
   final PdfViewerController pdfController = PdfViewerController();
   final TextEditingController searchController = TextEditingController();
-  PdfTextSearcher? textSearcher;
+  PdfSearchIndexer? textSearcher;
   Timer? _searchDebounce;
 
   PdfReaderBloc() : super(PdfReaderState.initial()) {
@@ -66,7 +67,7 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
 
   void initSearcher(PdfDocument document, PdfViewerController controller) {
     if (textSearcher == null) {
-      textSearcher = PdfTextSearcher(controller)
+      textSearcher = PdfSearchIndexer(controller)
         ..addListener(_onSearcherUpdate);
     }
     // Listen to the controller for page changes (fires on every scroll/jump).
@@ -93,8 +94,8 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
     if (searcher == null) return;
     add(
       SearchMatchesUpdatedEvent(
-        matchCount: searcher.matches.length,
-        currentIndex: searcher.currentIndex ?? -1,
+        matchCount: searcher.matchCount,
+        currentIndex: searcher.currentIndex,
       ),
     );
   }
@@ -105,7 +106,7 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
     final newSearching = !state.isSearching;
     if (!newSearching) {
       searchController.clear();
-      textSearcher?.resetTextSearch();
+      textSearcher?.resetSearch();
       emit(
         state.copyWith(
           isSearching: false,
@@ -125,12 +126,9 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       if (event.query.isNotEmpty) {
-        textSearcher?.startTextSearch(
-          event.query,
-          caseInsensitive: !state.isCaseSensitive,
-        );
+        textSearcher?.startSearch(event.query);
       } else {
-        textSearcher?.resetTextSearch();
+        textSearcher?.resetSearch();
         add(SearchMatchesUpdatedEvent(matchCount: 0, currentIndex: -1));
       }
     });
@@ -140,28 +138,27 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
     SearchNextMatchEvent event,
     Emitter<PdfReaderState> emit,
   ) {
-    textSearcher?.goToNextMatch();
+    textSearcher?.nextMatch();
   }
 
   void _onSearchPrevMatch(
     SearchPrevMatchEvent event,
     Emitter<PdfReaderState> emit,
   ) {
-    textSearcher?.goToPrevMatch();
+    textSearcher?.previousMatch();
   }
 
   void _onToggleCaseSensitivity(
     ToggleCaseSensitivityEvent event,
     Emitter<PdfReaderState> emit,
   ) {
+    // Custom Arabic Search is currently ignoring case/diacritics by default.
+    // Toggling this might just trigger a re-search or be ignored based on business logic.
     final newCaseSensitive = !state.isCaseSensitive;
     emit(state.copyWith(isCaseSensitive: newCaseSensitive));
-    // Re-run current search with new case sensitivity
+
     if (searchController.text.isNotEmpty) {
-      textSearcher?.startTextSearch(
-        searchController.text,
-        caseInsensitive: !newCaseSensitive,
-      );
+      textSearcher?.startSearch(searchController.text);
     }
   }
 

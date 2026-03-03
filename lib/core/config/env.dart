@@ -8,4 +8,6 @@ class Env {
   static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   static String get scriptSecretKey => dotenv.env['SCRIPT_SECRET_KEY'] ?? '';
+
+  static String get openRouterApiKey => dotenv.env['OPENROUTER_API_KEY'] ?? '';
 }

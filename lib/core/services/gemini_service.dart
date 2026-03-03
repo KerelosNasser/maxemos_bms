@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../config/env.dart';
 import '../utils/logger.dart';
@@ -38,7 +39,7 @@ class GeminiService {
     'gemini-2.5-pro-preview-tts',
   ];
 
-  static Future<GenerateContentResponse> _generateWithFallback(
+  static Future<String> _generateWithFallback(
     String prompt,
     Duration timeout,
   ) async {
@@ -59,7 +60,7 @@ class GeminiService {
             .generateContent([Content.text(prompt)])
             .timeout(timeout);
 
-        return response;
+        return response.text ?? '';
       } catch (e) {
         logger.w(
           'Gemini model $modelName failed or quota exceeded: $e. Switching to next model...',
@@ -68,8 +69,52 @@ class GeminiService {
       }
     }
 
-    logger.e('All Gemini models exhausted or failed.');
-    throw lastException ?? Exception('All Gemini models failed.');
+    logger.e(
+      'All Gemini models exhausted or failed. Falling back to OpenRouter...',
+    );
+
+    if (Env.openRouterApiKey.isEmpty) {
+      throw lastException ??
+          Exception(
+            'All Gemini models failed and OpenRouter API key is missing.',
+          );
+    }
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+            headers: {
+              'Authorization': 'Bearer ${Env.openRouterApiKey}',
+              'Content-Type': 'application/json',
+              'HTTP-Referer': 'https://maxemosbms.local',
+              'X-Title': 'Maxemos BMS',
+            },
+            body: jsonEncode({
+              'model': 'meta-llama/llama-3.3-70b-instruct:free',
+              'messages': [
+                {'role': 'user', 'content': prompt},
+              ],
+            }),
+          )
+          .timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data['choices'] != null && data['choices'].isNotEmpty) {
+          final content = data['choices'][0]['message']['content'];
+          return content?.toString() ?? '';
+        }
+      }
+      throw Exception(
+        'OpenRouter returned ${response.statusCode}: ${response.body}',
+      );
+    } catch (openRouterError) {
+      logger.e('OpenRouter fallback also failed: $openRouterError');
+      throw Exception(
+        'Both Gemini and OpenRouter failed. Last Gemini error: $lastException. OpenRouter error: $openRouterError',
+      );
+    }
   }
 
   static Future<Map<String, dynamic>> generateMetadata(String title) async {
@@ -88,12 +133,12 @@ class GeminiService {
 ''';
 
     try {
-      final response = await _generateWithFallback(
+      final responseText = await _generateWithFallback(
         prompt,
         const Duration(seconds: 30),
       );
 
-      String text = response.text ?? '{}';
+      String text = responseText.isEmpty ? '{}' : responseText;
 
       // Clean up potential markdown formatting that Gemini occasionally inserts
       text = text.replaceAll('```json', '').replaceAll('```', '').trim();
@@ -126,12 +171,12 @@ $excerptText
 ''';
 
     try {
-      final response = await _generateWithFallback(
+      final responseText = await _generateWithFallback(
         prompt,
         const Duration(seconds: 45),
       );
 
-      return response.text ?? 'No summary generated.';
+      return responseText.isEmpty ? 'No summary generated.' : responseText;
     } catch (e) {
       logger.e('Failed to summarize excerpt via Gemini AI: $e');
       throw Exception('Failed to summarize excerpt via Gemini AI: $e');
