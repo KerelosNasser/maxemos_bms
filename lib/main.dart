@@ -32,7 +32,7 @@ class MaxemosBMSApp extends StatelessWidget {
         BlocProvider<DashboardCubit>(create: (context) => DashboardCubit()),
       ],
       child: MaterialApp(
-        title: 'Maxemos BMS',
+        title: 'مدرسة الروح القدس',
         debugShowCheckedModeBanner: false,
         theme: VintageTheme.darkTheme,
         home: const DashboardScreen(),

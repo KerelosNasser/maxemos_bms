@@ -43,6 +43,12 @@ class ToggleUIVisibilityEvent extends PdfReaderEvent {
   ToggleUIVisibilityEvent(this.isVisible);
 }
 
+class PageChangedEvent extends PdfReaderEvent {
+  final int currentPage;
+  final int totalPages;
+  PageChangedEvent({required this.currentPage, required this.totalPages});
+}
+
 // --- Zoom Events ---
 class ZoomInEvent extends PdfReaderEvent {}
 

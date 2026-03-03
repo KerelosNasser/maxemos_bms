@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/services/drive_api_service.dart';
 import '../../data/services/pdf_cache_service.dart';
@@ -6,42 +7,102 @@ import 'book_event.dart';
 import 'book_state.dart';
 import '../../core/utils/logger.dart';
 
+// ─── Internal events (private to this file) ────────────────────────────────
+
+/// Fired by the background refresh to push a successful book list into the UI.
+class _BookRefreshLoaded extends BookEvent {
+  final List<Book> books;
+  final Set<String> cachedIds;
+  final bool isOffline;
+  const _BookRefreshLoaded(
+    this.books,
+    this.cachedIds, {
+    this.isOffline = false,
+  });
+}
+
+/// Fired by the background refresh to surface a fatal error.
+class _BookRefreshError extends BookEvent {
+  final String message;
+  const _BookRefreshError(this.message);
+}
+
+// ─── Bloc ───────────────────────────────────────────────────────────────────
+
 class BookBloc extends Bloc<BookEvent, BookState> {
   final DriveApiService driveApiService;
 
   BookBloc({required this.driveApiService}) : super(BookInitial()) {
     on<LoadBooksEvent>(_onLoadBooks);
+    // Internal events driven by the background refresh:
+    on<_BookRefreshLoaded>(_onRefreshLoaded);
+    on<_BookRefreshError>(_onRefreshError);
     on<UploadBookEvent>(_onUploadBook);
     on<DeleteBookEvent>(_onDeleteBook);
     on<UpdateBookEvent>(_onUpdateBook);
   }
 
+  // ── Load (instant cache-first, then background refresh) ──────────────────
+
+  /// Returns immediately after serving cached data.
+  /// Background network refresh is fired concurrently via [_refreshInBackground].
   Future<void> _onLoadBooks(
     LoadBooksEvent event,
     Emitter<BookState> emit,
   ) async {
-    emit(BookLoading());
+    final cachedBooks = await PdfCacheService.getCachedBookList();
+
+    if (cachedBooks.isNotEmpty) {
+      // Serve from cache instantly — no loading spinner shown.
+      final cachedIds = await PdfCacheService.getCachedBookIds();
+      emit(BookLoaded(cachedBooks, cachedBookIds: cachedIds));
+    } else {
+      // First-ever launch: nothing cached, display spinner during initial fetch.
+      emit(BookLoading());
+    }
+
+    // Fire and forget — handler exits now, network runs independently.
+    unawaited(_refreshInBackground(cachedBooks));
+  }
+
+  /// Fetches fresh data from the network without blocking the BLoC event queue.
+  /// Results are fed back through internal events so they go through the
+  /// normal [emit] mechanism inside a registered handler.
+  Future<void> _refreshInBackground(List<Book> previousCache) async {
     try {
       final books = await driveApiService.getFiles();
-      // Cache book list for offline use
-      PdfCacheService.cacheBookList(books);
-      // Check which PDFs are cached locally
+      unawaited(PdfCacheService.cacheBookList(books));
       final cachedIds = await PdfCacheService.getCachedBookIds();
-      emit(BookLoaded(books, cachedBookIds: cachedIds));
+      if (!isClosed) add(_BookRefreshLoaded(books, cachedIds));
     } catch (e) {
-      logger.e('Failed to load books: $e');
-      // Attempt to load from cache for offline mode
-      final cachedBooks = await PdfCacheService.getCachedBookList();
-      if (cachedBooks.isNotEmpty) {
+      logger.e('Background refresh failed: $e');
+      if (isClosed) return;
+      if (previousCache.isNotEmpty) {
+        // Network is down but we have cached data — show offline banner.
         final cachedIds = await PdfCacheService.getCachedBookIds();
-        emit(
-          BookLoaded(cachedBooks, cachedBookIds: cachedIds, isOffline: true),
-        );
+        add(_BookRefreshLoaded(previousCache, cachedIds, isOffline: true));
       } else {
-        emit(BookError(e.toString()));
+        // Truly nothing to show.
+        add(_BookRefreshError(e.toString()));
       }
     }
   }
+
+  void _onRefreshLoaded(_BookRefreshLoaded event, Emitter<BookState> emit) {
+    emit(
+      BookLoaded(
+        event.books,
+        cachedBookIds: event.cachedIds,
+        isOffline: event.isOffline,
+      ),
+    );
+  }
+
+  void _onRefreshError(_BookRefreshError event, Emitter<BookState> emit) {
+    emit(BookError(event.message));
+  }
+
+  // ── Upload ─────────────────────────────────────────────────────────────
 
   Future<void> _onUploadBook(
     UploadBookEvent event,
@@ -53,16 +114,9 @@ class BookBloc extends Bloc<BookEvent, BookState> {
       currentBooks = currentState.books;
     }
 
-    // Start upload with 0 progress
     emit(const BookUploading(0.0));
 
     try {
-      // Create a simulated progress stream wrapper since http.post doesn't
-      // easily expose upload progress for base64 encoded JSON bodies.
-      // In a real production app with multipart forms, you would use an
-      // HTTP client like Dio for robust onSendProgress.
-
-      // Run the progress simulation concurrently so it does not block the actual upload
       bool isUploading = true;
       Future<void> simulateProgress() async {
         double progress = 0.1;
@@ -75,8 +129,7 @@ class BookBloc extends Bloc<BookEvent, BookState> {
         }
       }
 
-      // Start simulation without awaiting
-      simulateProgress();
+      unawaited(simulateProgress());
 
       final newBook = await driveApiService.uploadFile(
         event.base64File,
@@ -84,20 +137,14 @@ class BookBloc extends Bloc<BookEvent, BookState> {
         event.mimeType,
       );
 
-      // Stop the simulation loop
       isUploading = false;
 
       if (!emit.isDone) emit(const BookUploading(1.0));
-
-      // Emit success state briefly for UI feedback
       emit(BookUploadSuccess());
-
-      // Return to loaded state with the new book appended
       emit(BookLoaded([...currentBooks, newBook]));
     } catch (e) {
       logger.e('Failed to upload book: $e');
       emit(BookUploadFailure(e.toString()));
-      // Revert to previous loaded state if available, or initial
       if (currentBooks.isNotEmpty) {
         emit(BookLoaded(currentBooks));
       } else {
@@ -105,6 +152,8 @@ class BookBloc extends Bloc<BookEvent, BookState> {
       }
     }
   }
+
+  // ── Delete ─────────────────────────────────────────────────────────────
 
   Future<void> _onDeleteBook(
     DeleteBookEvent event,
@@ -125,6 +174,8 @@ class BookBloc extends Bloc<BookEvent, BookState> {
       }
     }
   }
+
+  // ── Update ─────────────────────────────────────────────────────────────
 
   Future<void> _onUpdateBook(
     UpdateBookEvent event,

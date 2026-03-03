@@ -11,6 +11,10 @@ class PdfReaderState extends Equatable {
   // UI
   final bool isUIVisible;
 
+  // Page tracking
+  final int currentPage;
+  final int totalPages;
+
   // Search
   final bool isSearching;
   final int searchMatchCount;
@@ -35,6 +39,8 @@ class PdfReaderState extends Equatable {
     required this.downloadProgress,
     this.downloadError,
     required this.isUIVisible,
+    required this.currentPage,
+    required this.totalPages,
     required this.isSearching,
     required this.searchMatchCount,
     required this.searchCurrentIndex,
@@ -50,10 +56,12 @@ class PdfReaderState extends Equatable {
   factory PdfReaderState.initial() {
     return const PdfReaderState(
       pdfFilePath: null,
-      isDownloading: true,
+      isDownloading: false,
       downloadProgress: 0.0,
       downloadError: null,
       isUIVisible: true,
+      currentPage: 1,
+      totalPages: 0,
       isSearching: false,
       searchMatchCount: 0,
       searchCurrentIndex: -1,
@@ -74,6 +82,8 @@ class PdfReaderState extends Equatable {
     String? downloadError,
     bool clearDownloadError = false,
     bool? isUIVisible,
+    int? currentPage,
+    int? totalPages,
     bool? isSearching,
     int? searchMatchCount,
     int? searchCurrentIndex,
@@ -94,6 +104,8 @@ class PdfReaderState extends Equatable {
           ? null
           : (downloadError ?? this.downloadError),
       isUIVisible: isUIVisible ?? this.isUIVisible,
+      currentPage: currentPage ?? this.currentPage,
+      totalPages: totalPages ?? this.totalPages,
       isSearching: isSearching ?? this.isSearching,
       searchMatchCount: searchMatchCount ?? this.searchMatchCount,
       searchCurrentIndex: searchCurrentIndex ?? this.searchCurrentIndex,
@@ -118,6 +130,8 @@ class PdfReaderState extends Equatable {
     downloadProgress,
     downloadError,
     isUIVisible,
+    currentPage,
+    totalPages,
     isSearching,
     searchMatchCount,
     searchCurrentIndex,

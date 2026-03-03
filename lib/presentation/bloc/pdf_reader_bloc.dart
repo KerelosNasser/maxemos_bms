@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../data/services/pdf_cache_service.dart';
-
 import '../../data/services/highlight_service.dart';
 import 'pdf_reader_event.dart';
 import 'pdf_reader_state.dart';
@@ -31,6 +30,7 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
 
     // UI
     on<ToggleUIVisibilityEvent>(_onToggleUIVisibility);
+    on<PageChangedEvent>(_onPageChanged);
 
     // Zoom
     on<ZoomInEvent>(_onZoomIn);
@@ -53,6 +53,7 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
 
   @override
   Future<void> close() {
+    _trackedController?.removeListener(_onControllerUpdate);
     searchController.dispose();
     textSearcher?.dispose();
     _searchDebounce?.cancel();
@@ -61,10 +62,29 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
 
   // --- Initialization ---
 
+  PdfViewerController? _trackedController;
+
   void initSearcher(PdfDocument document, PdfViewerController controller) {
     if (textSearcher == null) {
       textSearcher = PdfTextSearcher(controller)
         ..addListener(_onSearcherUpdate);
+    }
+    // Listen to the controller for page changes (fires on every scroll/jump).
+    if (_trackedController == null) {
+      _trackedController = controller;
+      controller.addListener(_onControllerUpdate);
+      // Emit initial page count right away.
+      _onControllerUpdate();
+    }
+  }
+
+  void _onControllerUpdate() {
+    final ctrl = _trackedController;
+    if (ctrl == null || !ctrl.isReady) return;
+    final page = ctrl.pageNumber ?? 1;
+    final total = ctrl.pageCount;
+    if (page != state.currentPage || total != state.totalPages) {
+      add(PageChangedEvent(currentPage: page, totalPages: total));
     }
   }
 
@@ -166,6 +186,15 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
     if (state.isUIVisible != event.isVisible) {
       emit(state.copyWith(isUIVisible: event.isVisible));
     }
+  }
+
+  void _onPageChanged(PageChangedEvent event, Emitter<PdfReaderState> emit) {
+    emit(
+      state.copyWith(
+        currentPage: event.currentPage,
+        totalPages: event.totalPages,
+      ),
+    );
   }
 
   // --- Zoom Handlers ---
@@ -327,6 +356,23 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState> {
     DownloadPdfEvent event,
     Emitter<PdfReaderState> emit,
   ) async {
+    // ── Fast-path: serve from disk cache without any loading UI ──
+    final cachedFile = await PdfCacheService.getCachedFileIfExists(
+      event.bookId,
+    );
+    if (cachedFile != null) {
+      emit(
+        state.copyWith(
+          isDownloading: false,
+          downloadProgress: 1.0,
+          pdfFilePath: cachedFile.path,
+          clearDownloadError: true,
+        ),
+      );
+      return; // Done — no network needed.
+    }
+
+    // ── Slow-path: file not cached, download it ──
     emit(
       state.copyWith(
         isDownloading: true,
@@ -375,6 +421,8 @@ class PdfReaderSummarySuccess extends PdfReaderState {
         downloadProgress: state.downloadProgress,
         downloadError: state.downloadError,
         isUIVisible: state.isUIVisible,
+        currentPage: state.currentPage,
+        totalPages: state.totalPages,
         isSearching: state.isSearching,
         searchMatchCount: state.searchMatchCount,
         searchCurrentIndex: state.searchCurrentIndex,
@@ -396,6 +444,8 @@ class PdfReaderSummaryFailure extends PdfReaderState {
         downloadProgress: state.downloadProgress,
         downloadError: state.downloadError,
         isUIVisible: state.isUIVisible,
+        currentPage: state.currentPage,
+        totalPages: state.totalPages,
         isSearching: state.isSearching,
         searchMatchCount: state.searchMatchCount,
         searchCurrentIndex: state.searchCurrentIndex,

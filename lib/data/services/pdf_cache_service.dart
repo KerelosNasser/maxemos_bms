@@ -11,8 +11,44 @@ class PdfCacheService {
 
   // ─── PDF Download & Cache ───
 
+  /// Returns the cached [File] immediately if it exists on disk, or [null].
+  /// Use this for the fast-path check before deciding to show a loading UI.
+  static Future<File?> getCachedFileIfExists(String bookId) async {
+    final cacheDir = await getApplicationCacheDirectory();
+    final file = File('${cacheDir.path}/pdfs/$bookId.pdf');
+    if (file.existsSync() && file.lengthSync() > 0) {
+      if (_isValidPdfSync(file)) return file;
+      // It's a corrupted cache (likely an HTML error), clear it
+      file.deleteSync();
+    }
+    return null;
+  }
+
+  /// Verifies the first few bytes start with '%PDF-' to prevent saving HTML/Captive portal pages
+  static bool _isValidPdfSync(File file) {
+    if (!file.existsSync() || file.lengthSync() < 5) return false;
+    try {
+      final fileAccess = file.openSync(mode: FileMode.read);
+      final bytes = fileAccess.readSync(1024);
+      fileAccess.closeSync();
+      // Check for '%PDF-' (Hex: 25 50 44 46 2D)
+      for (int i = 0; i <= bytes.length - 5; i++) {
+        if (bytes[i] == 37 &&
+            bytes[i + 1] == 80 &&
+            bytes[i + 2] == 68 &&
+            bytes[i + 3] == 70 &&
+            bytes[i + 4] == 45) {
+          return true;
+        }
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Returns the local [File] for a cached PDF.
-  /// Downloads if not already cached.
+  /// Downloads if not already cached. Handles Google Drive warning links.
   static Future<File> getCachedPdf({
     required String bookId,
     required String downloadUrl,
@@ -25,14 +61,15 @@ class PdfCacheService {
     }
     final file = File('${pdfDir.path}/$bookId.pdf');
 
-    // Return cached file if it exists and is non-empty
+    // Return cached file if it exists and is valid
     if (file.existsSync() && file.lengthSync() > 0) {
-      return file;
+      if (_isValidPdfSync(file)) return file;
+      file.deleteSync();
     }
 
     // Download with generous timeout for large PDFs
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 30);
+    client.connectionTimeout = const Duration(seconds: 45);
 
     try {
       final request = await client.getUrl(Uri.parse(downloadUrl));
@@ -44,6 +81,33 @@ class PdfCacheService {
         );
       }
 
+      // Google Drive handles large files by showing an HTML virus scan warning.
+      // E.g. contentType = "text/html; charset=utf-8"
+      final contentType = response.headers.contentType?.mimeType ?? '';
+      if (contentType == 'text/html') {
+        final htmlContent = await utf8.decodeStream(response);
+        // Look for the confirmation token the download button uses
+        final confirmMatch = RegExp(
+          r'confirm=([a-zA-Z0-9_\-]+)',
+        ).firstMatch(htmlContent);
+        if (confirmMatch != null) {
+          final confirmToken = confirmMatch.group(1);
+          final newUrl = '$downloadUrl&confirm=$confirmToken';
+          client.close();
+          // Retry gracefully with the acquired confirm token
+          return getCachedPdf(
+            bookId: bookId,
+            downloadUrl: newUrl,
+            onProgress: onProgress,
+          );
+        } else {
+          throw HttpException(
+            'Encountered an HTML block page instead of PDF (e.g., captive portal or rate limit).',
+          );
+        }
+      }
+
+      // If it's not HTML, stream the actual bytes to the file
       final totalBytes = response.contentLength;
       int receivedBytes = 0;
       final sink = file.openWrite();
@@ -56,6 +120,11 @@ class PdfCacheService {
 
       await sink.flush();
       await sink.close();
+
+      if (!_isValidPdfSync(file)) {
+        file.deleteSync();
+        throw HttpException('The downloaded file is not a valid PDF document.');
+      }
 
       return file;
     } catch (e) {
@@ -106,10 +175,16 @@ class PdfCacheService {
     final jsonStr = prefs.getString(_bookListKey);
     if (jsonStr == null) return [];
 
-    final List<dynamic> jsonList = jsonDecode(jsonStr);
-    return jsonList
-        .map((json) => Book.fromJson(json as Map<String, dynamic>))
-        .toList();
+    try {
+      final List<dynamic> jsonList = jsonDecode(jsonStr);
+      return jsonList
+          .map((json) => Book.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      // If the cache is corrupted or from an older schema, clear it.
+      await prefs.remove(_bookListKey);
+      return [];
+    }
   }
 
   // ─── Cache Management ───

@@ -14,6 +14,7 @@ import '../widgets/pdf_zoom_controls.dart';
 import '../widgets/pdf_summarize_dialogs.dart';
 import '../widgets/highlight_panel.dart';
 import '../widgets/highlight_action_button.dart';
+import '../widgets/pdf_page_scrubber.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final Book book;
@@ -79,8 +80,14 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     ? _buildDownloadProgress(state)
                     : state.downloadError != null
                         ? _buildDownloadError(state, bloc, book)
-                        : _buildReaderView(
-                            context, state, bloc, book, topPadding),
+                        : state.pdfFilePath == null
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: VintageTheme.vintageGold,
+                                ),
+                              )
+                            : _buildReaderView(
+                                context, state, bloc, book, topPadding),
               );
             },
           );
@@ -396,6 +403,20 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 onClose: () => bloc.add(ToggleHighlightPanelEvent()),
               ),
             ),
+
+          // === Page Indicator / Scrubber (Google Drive Style) ===
+          Positioned(
+            right: 0,
+            top: topPadding + kToolbarHeight + 16,
+            bottom: 80 + MediaQuery.of(context).viewInsets.bottom,
+            width: 150, // width just to constrain the scrubber's drag area + pill
+            child: PdfPageScrubber(
+              currentPage: state.currentPage,
+              totalPages: state.totalPages,
+              controller: bloc.pdfController,
+              isUIVisible: state.isUIVisible,
+            ),
+          ),
         ],
       ),
     );
