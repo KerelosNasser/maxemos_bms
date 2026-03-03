@@ -9,48 +9,9 @@ import 'package:tesseract_ocr/tesseract_ocr.dart';
 import 'package:tesseract_ocr/ocr_engine_config.dart';
 
 import 'arabic_text_normalizer.dart';
-
-// ─────────────────────────────────────────────────────────────────
-//  DATA CLASSES
-// ─────────────────────────────────────────────────────────────────
-
-/// A single OCR search hit.
-/// [yPdf] is the Y-coordinate in **PDF page space** (accurate, derived from
-/// the pdfrx fragment positions even though the extracted text is garbled).
-class _OcrMatch {
-  final int pageNumber;
-  final double yPdf; // Y in PDF coords (0 = bottom of page)
-
-  const _OcrMatch({required this.pageNumber, required this.yPdf});
-}
-
-/// Cached per-page OCR data: the recognized text **and** the vertical extent
-/// of the text region on the page (from pdfrx fragment bounds).
-class _PageOcrData {
-  final String text;
-  final String normalizedText;
-
-  /// Vertical text region in PDF coords (Y=0 at bottom, increases up).
-  /// [textTopY] is the highest Y (top of text area).
-  /// [textBottomY] is the lowest Y (bottom of text area).
-  final double textTopY;
-  final double textBottomY;
-
-  /// Number of lines in the OCR text (cached for reuse).
-  final int lineCount;
-
-  const _PageOcrData({
-    required this.text,
-    required this.normalizedText,
-    required this.textTopY,
-    required this.textBottomY,
-    required this.lineCount,
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────
-//  PdfSearchIndexer
-// ─────────────────────────────────────────────────────────────────
+import 'pdf/ocr_match.dart';
+import 'pdf/arabic_regex.dart';
+import 'pdf/pdf_search_painter.dart';
 
 /// PDF search with Arabic support.
 ///
@@ -64,9 +25,9 @@ class PdfSearchIndexer {
   late final PdfTextSearcher _pdfrxSearcher;
 
   // -- Path 2 --
-  final Map<int, _PageOcrData> _ocrCache = {}; // pageNum → data
-  final List<_OcrMatch> _ocrMatches = [];
-  Map<int, List<_OcrMatch>> _ocrMatchesByPage = {}; // O(1) paint lookup
+  final Map<int, PageOcrData> _ocrCache = {}; // pageNum → data
+  final List<OcrMatch> _ocrMatches = [];
+  Map<int, List<OcrMatch>> _ocrMatchesByPage = {}; // O(1) paint lookup
   int? _ocrIndex;
 
   bool _isSearching = false;
@@ -111,10 +72,6 @@ class PdfSearchIndexer {
     _listeners.clear();
     _ocrCache.clear();
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  SEARCH API
-  // ═══════════════════════════════════════════════════════════════
 
   Future<void> startSearch(String query) async {
     if (query.trim().isEmpty) {
@@ -170,10 +127,6 @@ class PdfSearchIndexer {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  //  DETECTION
-  // ═══════════════════════════════════════════════════════════════
-
   static final _arabicRe = RegExp(
     r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]',
   );
@@ -193,23 +146,15 @@ class PdfSearchIndexer {
     return !hasArabic;
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  //  PATH 1 – pdfrx (well-encoded)
-  // ═══════════════════════════════════════════════════════════════
-
   void _searchPdfrx(String query) {
     _pdfrxSearcher.startTextSearch(
-      _ArabicRegex.build(query),
+      ArabicRegex.build(query),
       caseInsensitive: true,
       goToFirstMatch: true,
       searchImmediately: true,
     );
     _isSearching = false;
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  PATH 2 – Tesseract OCR (garbled / image)
-  // ═══════════════════════════════════════════════════════════════
 
   Future<void> _searchOcr(String query, int session) async {
     final nq = ArabicTextNormalizer.normalize(query);
@@ -223,7 +168,7 @@ class PdfSearchIndexer {
         if (session != _searchSession) return;
 
         // ── Get or build page data ──
-        _PageOcrData? data = _ocrCache[page.pageNumber];
+        PageOcrData? data = _ocrCache[page.pageNumber];
         if (data == null) {
           data = await _buildPageOcrData(page);
           if (data != null) {
@@ -240,7 +185,7 @@ class PdfSearchIndexer {
           if (idx == -1) break;
 
           _ocrMatches.add(
-            _OcrMatch(
+            OcrMatch(
               pageNumber: page.pageNumber,
               yPdf: _yForCharIndex(data, idx, page),
             ),
@@ -267,7 +212,7 @@ class PdfSearchIndexer {
   /// Build cached OCR data for one page:
   /// 1. Extract text **bounding box** Y-extent from pdfrx fragment bounds.
   /// 2. Run Tesseract OCR for the actual Arabic text.
-  Future<_PageOcrData?> _buildPageOcrData(PdfPage page) async {
+  Future<PageOcrData?> _buildPageOcrData(PdfPage page) async {
     // ── Step 1: text region bounding box from pdfrx ──
     final structured = await page.loadStructuredText();
     double? minY, maxY;
@@ -289,7 +234,7 @@ class PdfSearchIndexer {
     final ocrText = await _tesseractPage(page);
     if (ocrText.isEmpty) return null;
 
-    return _PageOcrData(
+    return PageOcrData(
       text: ocrText,
       normalizedText: ArabicTextNormalizer.normalize(ocrText),
       textTopY: maxY,
@@ -310,7 +255,7 @@ class PdfSearchIndexer {
   ///
   /// Uses the text bounding box from pdfrx fragments and distributes
   /// OCR lines proportionally within that region.
-  double _yForCharIndex(_PageOcrData data, int charIdx, PdfPage page) {
+  double _yForCharIndex(PageOcrData data, int charIdx, PdfPage page) {
     // IMPORTANT: charIdx is an index into normalizedText (not original text).
     // Normalization removes diacritics so lengths differ — we must count
     // newlines in normalizedText to get the correct line number.
@@ -364,10 +309,6 @@ class PdfSearchIndexer {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  //  NAVIGATION
-  // ═══════════════════════════════════════════════════════════════
-
   void _goToOcrMatch() {
     if (_ocrIndex == null ||
         _ocrIndex! < 0 ||
@@ -392,157 +333,24 @@ class PdfSearchIndexer {
     _notify();
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  //  PAINT CALLBACK
-  // ═══════════════════════════════════════════════════════════════
-
   void pageTextMatchPaintCallback(
     ui.Canvas canvas,
     Rect pageRect,
     PdfPage page,
   ) {
     if (_needsOcr == true) {
-      _paintOcr(canvas, pageRect, page);
+      final activeMatch = (_ocrIndex != null && _ocrIndex! < _ocrMatches.length)
+          ? _ocrMatches[_ocrIndex!]
+          : null;
+      PdfSearchPainter.paintOcr(
+        canvas,
+        pageRect,
+        page,
+        _ocrMatchesByPage[page.pageNumber],
+        activeMatch,
+      );
     } else {
       _pdfrxSearcher.pageTextMatchPaintCallback(canvas, pageRect, page);
     }
-  }
-
-  /// Paint highlight strips at **accurate** vertical positions.
-  ///
-  /// Uses pre-indexed `_ocrMatchesByPage` → O(1) page lookup,
-  /// then O(pageMatches) to draw.
-  void _paintOcr(ui.Canvas canvas, Rect pageRect, PdfPage page) {
-    final pageMatches = _ocrMatchesByPage[page.pageNumber];
-    if (pageMatches == null || pageMatches.isEmpty) return;
-
-    final activeMatch = (_ocrIndex != null && _ocrIndex! < _ocrMatches.length)
-        ? _ocrMatches[_ocrIndex!]
-        : null;
-
-    // Scale factor: PDF points → screen pixels
-    final scale = pageRect.height / page.height;
-
-    const stripH = 22.0;
-    final inactiveColor = Colors.yellow.withAlpha(80);
-    final activeColor = Colors.orange.withAlpha(120);
-    final accentColor = Colors.orange;
-
-    for (final m in pageMatches) {
-      // Convert PDF Y to Flutter screen Y
-      // PDF: Y=0 at bottom, increases upward
-      // Flutter: Y=0 at top, increases downward
-      final screenY = pageRect.top + (page.height - m.yPdf) * scale;
-
-      final isActive =
-          activeMatch != null &&
-          m.pageNumber == activeMatch.pageNumber &&
-          (m.yPdf - activeMatch.yPdf).abs() < 5;
-
-      // Highlight strip
-      final strip = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(pageRect.center.dx, screenY),
-          width: pageRect.width * 0.94,
-          height: stripH,
-        ),
-        const Radius.circular(4),
-      );
-      canvas.drawRRect(
-        strip,
-        Paint()..color = isActive ? activeColor : inactiveColor,
-      );
-
-      // Left accent bar for active match
-      if (isActive) {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(pageRect.left + 3, screenY - stripH / 2, 4, stripH),
-            const Radius.circular(2),
-          ),
-          Paint()..color = accentColor,
-        );
-      }
-    }
-
-    // Match count badge
-    _paintBadge(
-      canvas,
-      pageRect,
-      pageMatches.length,
-      activeMatch?.pageNumber == page.pageNumber,
-    );
-  }
-
-  void _paintBadge(ui.Canvas canvas, Rect pageRect, int count, bool isActive) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: ' $count ',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final r = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        pageRect.right - tp.width - 10,
-        pageRect.top + 8,
-        tp.width + 6,
-        tp.height + 4,
-      ),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(
-      r,
-      Paint()..color = isActive ? Colors.orange : Colors.amber.shade700,
-    );
-    tp.paint(canvas, Offset(r.left + 3, r.top + 2));
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  Arabic Regex (Path 1 only)
-// ═══════════════════════════════════════════════════════════════
-
-class _ArabicRegex {
-  static const _d =
-      r'[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED\u0640\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]*';
-
-  static const _eq = <String, String>{
-    'ا': r'[اأإآٱ]',
-    'أ': r'[اأإآٱ]',
-    'إ': r'[اأإآٱ]',
-    'آ': r'[اأإآٱ]',
-    'ٱ': r'[اأإآٱ]',
-    'ة': r'[ةه]',
-    'ه': r'[ةه]',
-    'ي': r'[يئى]',
-    'ئ': r'[يئى]',
-    'ى': r'[يئى]',
-    'و': r'[وؤ]',
-    'ؤ': r'[وؤ]',
-    'ء': r'[ءأإؤئ]?',
-  };
-
-  static RegExp build(String query) {
-    final n = ArabicTextNormalizer.normalize(query);
-    if (n.isEmpty) return RegExp('');
-    final b = StringBuffer();
-    for (int i = 0; i < n.length; i++) {
-      if (i > 0) b.write(_d);
-      final c = n[i];
-      if (_eq.containsKey(c)) {
-        b.write(_eq[c]);
-      } else if (r'\.^$*+?{}[]|()'.contains(c)) {
-        b.write('\\$c');
-      } else {
-        b.write(c);
-      }
-    }
-    return RegExp(b.toString(), unicode: true, caseSensitive: false);
   }
 }

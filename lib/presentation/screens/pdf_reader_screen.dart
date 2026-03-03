@@ -15,6 +15,9 @@ import '../widgets/pdf_summarize_dialogs.dart';
 import '../widgets/highlight_panel.dart';
 import '../widgets/highlight_action_button.dart';
 import '../widgets/pdf_page_scrubber.dart';
+import '../widgets/pdf/pdf_download_progress_view.dart';
+import '../widgets/pdf/pdf_download_error_view.dart';
+import '../widgets/pdf/pdf_summarize_overlay.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final Book book;
@@ -77,152 +80,25 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 backgroundColor: Colors.black,
                 resizeToAvoidBottomInset: false,
                 body: state.isDownloading
-                    ? _buildDownloadProgress(state)
+                    ? PdfDownloadProgressView(state: state, book: book)
                     : state.downloadError != null
-                        ? _buildDownloadError(state, bloc, book)
-                        : state.pdfFilePath == null
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                  color: VintageTheme.vintageGold,
-                                ),
-                              )
-                            : _buildReaderView(
-                                context, state, bloc, book, topPadding),
+                    ? PdfDownloadErrorView(
+                        state: state,
+                        bloc: bloc,
+                        book: book,
+                        parentContext: context,
+                      )
+                    : state.pdfFilePath == null
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: VintageTheme.vintageGold,
+                        ),
+                      )
+                    : _buildReaderView(context, state, bloc, book, topPadding),
               );
             },
           );
         },
-      ),
-    );
-  }
-
-  // === Download Progress ===
-  Widget _buildDownloadProgress(PdfReaderState state) {
-    final percent = (state.downloadProgress * 100).toStringAsFixed(0);
-    return Container(
-      color: VintageTheme.inkDark,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 80,
-              height: 80,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    value: state.downloadProgress > 0
-                        ? state.downloadProgress
-                        : null,
-                    color: VintageTheme.vintageGold,
-                    strokeWidth: 4,
-                  ),
-                  Text(
-                    '$percent%',
-                    style: const TextStyle(
-                      color: VintageTheme.vintageGold,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'جاري تحميل الكتاب...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-              textDirection: TextDirection.rtl,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.book.title,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // === Download Error ===
-  Widget _buildDownloadError(
-    PdfReaderState state,
-    PdfReaderBloc bloc,
-    Book book,
-  ) {
-    final downloadUrl =
-        'https://drive.google.com/uc?export=download&id=${book.id}';
-    return Container(
-      color: VintageTheme.inkDark,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.redAccent, size: 64),
-              const SizedBox(height: 16),
-              const Text(
-                'فشل تحميل الكتاب',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                textDirection: TextDirection.rtl,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                state.downloadError ?? '',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('رجوع'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[800],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => bloc.add(DownloadPdfEvent(
-                      bookId: book.id,
-                      downloadUrl: downloadUrl,
-                    )),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('إعادة المحاولة'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: VintageTheme.inkFaded,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -267,10 +143,12 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   onTextSelectionChange: (selections) async {
                     final text = await selections.getSelectedText();
                     if (text.isNotEmpty) {
-                      bloc.add(SetSelectedTextEvent(
-                        text: text,
-                        pageNumber: bloc.pdfController.pageNumber ?? 1,
-                      ));
+                      bloc.add(
+                        SetSelectedTextEvent(
+                          text: text,
+                          pageNumber: bloc.pdfController.pageNumber ?? 1,
+                        ),
+                      );
                     } else {
                       bloc.add(ClearSelectedTextEvent());
                     }
@@ -319,32 +197,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
           ),
 
           // === Summarize Loading Overlay ===
-          if (state.isSummarizing)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black87,
-                child: const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(
-                        color: VintageTheme.vintageGold,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'جاري الرجوع لآباء الكنيسة...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textDirection: TextDirection.rtl,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          if (state.isSummarizing) const PdfSummarizeOverlay(),
 
           // === Highlight Action Button ===
           if (state.selectedText != null && state.selectedText!.isNotEmpty)
@@ -364,11 +217,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             right: 16,
             child: FloatingActionButton.extended(
               backgroundColor: VintageTheme.inkFaded,
-              onPressed: () => showSummarizeInputDialog(
-                context,
-                bloc,
-                book.title,
-              ),
+              onPressed: () =>
+                  showSummarizeInputDialog(context, bloc, book.title),
               icon: const Icon(
                 Icons.auto_awesome,
                 color: VintageTheme.vintageGold,
@@ -395,10 +245,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 highlights: state.highlights,
                 onGoToHighlight: (h) => bloc.add(GoToHighlightEvent(h)),
                 onRemoveHighlight: (id) => bloc.add(
-                  RemoveHighlightEvent(
-                    highlightId: id,
-                    bookId: book.id,
-                  ),
+                  RemoveHighlightEvent(highlightId: id, bookId: book.id),
                 ),
                 onClose: () => bloc.add(ToggleHighlightPanelEvent()),
               ),
@@ -409,7 +256,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
             right: 0,
             top: topPadding + kToolbarHeight + 16,
             bottom: 80 + MediaQuery.of(context).viewInsets.bottom,
-            width: 150, // width just to constrain the scrubber's drag area + pill
+            width:
+                150, // width just to constrain the scrubber's drag area + pill
             child: PdfPageScrubber(
               currentPage: state.currentPage,
               totalPages: state.totalPages,
