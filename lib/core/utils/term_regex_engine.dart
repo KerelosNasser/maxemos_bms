@@ -10,8 +10,9 @@ class TermRegexEngine {
     // 2. Remove non-letter characters
     cleaned = cleaned.replaceAll(RegExp(r'[^\u0600-\u06FFا-ي]'), '').trim();
 
-    if (cleaned.length < 3)
+    if (cleaned.length < 3) {
       return cleaned; // Too short to effectively strip safely
+    }
 
     // 3. Strip common conjunctions/prepositions (ف، و، ك، ب) if they accompany "ال"
     List<String> compoundPrefixes = ['فال', 'وال', 'كال', 'بال', 'لل'];
@@ -30,7 +31,7 @@ class TermRegexEngine {
       if (cleaned.startsWith(prefix) && cleaned.length > prefix.length + 3) {
         // Check if removing it helps (we will do a LIKE query anyway).
         // We just remove the standalone letter.
-        if (!cleaned.startsWith(prefix + 'ال')) {
+        if (!cleaned.startsWith('$prefixال')) {
           // If it had "ال", it was caught above
           cleaned = cleaned.substring(prefix.length);
         }

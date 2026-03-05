@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/theme/vintage_theme.dart';
-import '../../data/models/highlight.dart';
 import '../bloc/pdf_reader_bloc.dart';
-import '../bloc/pdf_reader_event.dart';
 import 'sermon_folder_selection_sheet.dart';
 
 /// The inner content of the floating "Save Highlight" button.

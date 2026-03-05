@@ -190,8 +190,9 @@ class PdfSearchIndexer {
 
     // 2. Expand outward
     for (int offset = 1; offset <= radius; offset++) {
-      if (currentPage + offset <= totalPages)
+      if (currentPage + offset <= totalPages) {
         _ocrCacheQueue.add(currentPage + offset);
+      }
       if (currentPage - offset >= 1) _ocrCacheQueue.add(currentPage - offset);
     }
 

@@ -100,7 +100,7 @@ class HighlightPanel extends StatelessWidget {
                   shrinkWrap: true,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: highlights.length,
-                  separatorBuilder: (_, __) => const Divider(
+                  separatorBuilder: (_, _) => const Divider(
                     color: VintageTheme.inkFaded,
                     height: 1,
                     indent: 16,

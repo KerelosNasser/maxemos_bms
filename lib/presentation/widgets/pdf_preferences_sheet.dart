@@ -50,7 +50,7 @@ class PdfPreferencesSheet extends StatelessWidget {
 
           // Sepia Toggle
           SwitchListTile(
-            activeColor: VintageTheme.vintageGold,
+            activeThumbColor: VintageTheme.vintageGold,
             activeTrackColor: VintageTheme.vintageGold.withOpacity(0.3),
             inactiveThumbColor: Colors.grey,
             title: const Text(
@@ -74,7 +74,7 @@ class PdfPreferencesSheet extends StatelessWidget {
 
           // Edge Navigation Toggle
           SwitchListTile(
-            activeColor: VintageTheme.vintageGold,
+            activeThumbColor: VintageTheme.vintageGold,
             activeTrackColor: VintageTheme.vintageGold.withOpacity(0.3),
             inactiveThumbColor: Colors.grey,
             title: const Text(

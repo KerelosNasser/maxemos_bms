@@ -62,11 +62,6 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState>
     on<ToggleHighlightPanelEvent>(onToggleHighlightPanel);
     on<SetSelectedTextEvent>(onSetSelectedText);
     on<ClearSelectedTextEvent>(onClearSelectedText);
-
-    // --- Preferences Handling ---
-    on<LoadPreferencesEvent>(onLoadPreferences);
-    on<ToggleSepiaModeEvent>(onToggleSepiaMode);
-    on<ToggleNavigationZonesEvent>(onToggleNavigationZones);
   }
 
   @override
