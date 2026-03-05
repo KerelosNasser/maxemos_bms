@@ -20,6 +20,7 @@ import '../widgets/pdf/pdf_summarize_overlay.dart';
 import '../../core/utils/scriptural_regex_engine.dart';
 import '../widgets/verse_overlay_sheet.dart';
 import '../widgets/lexicon_overlay_sheet.dart';
+import '../widgets/ask_ai_overlay_sheet.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final Book book;
@@ -353,6 +354,37 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                                 ),
                               ),
                             ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8.0),
+                            child: FloatingActionButton.extended(
+                              heroTag: 'ask_ai_btn',
+                              backgroundColor: VintageTheme.parchmentLight,
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => AskAiOverlaySheet(
+                                    selectedText: text.trim(),
+                                    bookTitle: widget.book.title,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.auto_awesome,
+                                color: VintageTheme.inkDark,
+                              ),
+                              label: const Text(
+                                'اسأل الذكاء الاصطناعي',
+                                style: TextStyle(
+                                  fontFamily: 'Amiri',
+                                  color: VintageTheme.inkDark,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
                           if (refs.isEmpty &&
                               !(isSingleWord && state.isDefinitionAvailable))
                             const SizedBox.shrink(),

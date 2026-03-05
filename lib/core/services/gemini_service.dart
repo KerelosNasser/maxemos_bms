@@ -182,4 +182,38 @@ $excerptText
       throw Exception('Failed to summarize excerpt via Gemini AI: $e');
     }
   }
+
+  static Future<String> askQuestionAboutText({
+    required String text,
+    required String bookTitle,
+    required String question,
+  }) async {
+    final prompt =
+        '''
+أنت أب قبطي أرثوذكسي محترم وذو معرفة واسعة.
+القارئ يسألك سؤالاً عن النص التالي المأخوذ من كتاب "$bookTitle".
+أجب عن سؤاله بوضوح وبأسلوب روحي رصين، معتمداً على النص المرفق وعلى تعاليم الكنيسة القبطية الأرثوذكسية الخالية من الأخطاء العقائدية.
+يجب أن تكون إجابتك باللغة العربية 100%.
+
+النص الذي قرأه المستخدم:
+"$text"
+
+سؤال المستخدم:
+"$question"
+''';
+
+    try {
+      final responseText = await _generateWithFallback(
+        prompt,
+        const Duration(seconds: 45),
+      );
+
+      return responseText.isEmpty
+          ? 'عذراً، لم أتمكن من إيجاد إجابة.'
+          : responseText;
+    } catch (e) {
+      logger.e('Failed to answer user question via Gemini AI: $e');
+      throw Exception('Failed to answer user question via Gemini AI: $e');
+    }
+  }
 }
