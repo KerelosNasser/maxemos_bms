@@ -56,6 +56,9 @@ mixin PdfHighlightMixin on Bloc<PdfReaderEvent, PdfReaderState> {
         selectedPageNumber: event.pageNumber,
       ),
     );
+    if (event.text.trim().isNotEmpty) {
+      add(CheckDefinitionEvent(event.text));
+    }
   }
 
   void onClearSelectedText(

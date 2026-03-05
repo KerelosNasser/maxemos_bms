@@ -32,10 +32,13 @@ class PdfReaderState extends Equatable {
   final bool isHighlightPanelOpen;
   final String? selectedText;
   final int? selectedPageNumber;
+  final bool isDefinitionAvailable;
 
   // Accessibility Preferences
   final bool isSepiaModeEnabled;
+  final double sepiaWeight;
   final bool isNavigationZonesEnabled;
+  final double navigationZonesWidth;
 
   const PdfReaderState({
     this.pdfFilePath,
@@ -55,8 +58,11 @@ class PdfReaderState extends Equatable {
     required this.isHighlightPanelOpen,
     this.selectedText,
     this.selectedPageNumber,
+    required this.isDefinitionAvailable,
     required this.isSepiaModeEnabled,
+    required this.sepiaWeight,
     required this.isNavigationZonesEnabled,
+    required this.navigationZonesWidth,
   });
 
   factory PdfReaderState.initial() {
@@ -78,8 +84,11 @@ class PdfReaderState extends Equatable {
       isHighlightPanelOpen: false,
       selectedText: null,
       selectedPageNumber: null,
+      isDefinitionAvailable: false,
       isSepiaModeEnabled: false,
+      sepiaWeight: 1.0,
       isNavigationZonesEnabled: false,
+      navigationZonesWidth: 0.15,
     );
   }
 
@@ -103,8 +112,11 @@ class PdfReaderState extends Equatable {
     String? selectedText,
     int? selectedPageNumber,
     bool clearSelectedText = false,
+    bool? isDefinitionAvailable,
     bool? isSepiaModeEnabled,
+    double? sepiaWeight,
     bool? isNavigationZonesEnabled,
+    double? navigationZonesWidth,
   }) {
     return PdfReaderState(
       pdfFilePath: pdfFilePath ?? this.pdfFilePath,
@@ -130,9 +142,14 @@ class PdfReaderState extends Equatable {
       selectedPageNumber: clearSelectedText
           ? null
           : (selectedPageNumber ?? this.selectedPageNumber),
+      isDefinitionAvailable: clearSelectedText
+          ? false
+          : (isDefinitionAvailable ?? this.isDefinitionAvailable),
       isSepiaModeEnabled: isSepiaModeEnabled ?? this.isSepiaModeEnabled,
+      sepiaWeight: sepiaWeight ?? this.sepiaWeight,
       isNavigationZonesEnabled:
           isNavigationZonesEnabled ?? this.isNavigationZonesEnabled,
+      navigationZonesWidth: navigationZonesWidth ?? this.navigationZonesWidth,
     );
   }
 
@@ -155,7 +172,10 @@ class PdfReaderState extends Equatable {
     isHighlightPanelOpen,
     selectedText,
     selectedPageNumber,
+    isDefinitionAvailable,
     isSepiaModeEnabled,
+    sepiaWeight,
     isNavigationZonesEnabled,
+    navigationZonesWidth,
   ];
 }

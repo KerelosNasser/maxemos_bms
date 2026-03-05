@@ -102,7 +102,14 @@ class ToggleHighlightPanelEvent extends PdfReaderEvent {}
 class SetSelectedTextEvent extends PdfReaderEvent {
   final String text;
   final int pageNumber;
+
   SetSelectedTextEvent({required this.text, required this.pageNumber});
+}
+
+class CheckDefinitionEvent extends PdfReaderEvent {
+  final String selectedText;
+
+  CheckDefinitionEvent(this.selectedText);
 }
 
 class ClearSelectedTextEvent extends PdfReaderEvent {}
@@ -113,3 +120,13 @@ class LoadPreferencesEvent extends PdfReaderEvent {}
 class ToggleSepiaModeEvent extends PdfReaderEvent {}
 
 class ToggleNavigationZonesEvent extends PdfReaderEvent {}
+
+class UpdateSepiaWeightEvent extends PdfReaderEvent {
+  final double weight;
+  UpdateSepiaWeightEvent(this.weight);
+}
+
+class UpdateNavigationZonesWidthEvent extends PdfReaderEvent {
+  final double width;
+  UpdateNavigationZonesWidthEvent(this.width);
+}

@@ -1,9 +1,10 @@
-import 'dart:async';
-import 'package:pdfrx/pdfrx.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import 'pdf_reader_event.dart';
 import 'pdf_reader_state.dart';
+import '../../../data/repositories/lexicon_repository.dart';
+import '../../../core/utils/term_regex_engine.dart';
 
 import 'mixins/pdf_search_mixin.dart';
 import 'mixins/pdf_zoom_mixin.dart';
@@ -22,12 +23,15 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState>
         PdfPreferencesMixin {
   @override
   final PdfViewerController pdfController = PdfViewerController();
+  final LexiconRepository _lexiconRepository = LexiconRepository();
 
   PdfReaderBloc() : super(PdfReaderState.initial()) {
     // Preferences Handling
     on<LoadPreferencesEvent>(onLoadPreferences);
     on<ToggleSepiaModeEvent>(onToggleSepiaMode);
+    on<UpdateSepiaWeightEvent>(onUpdateSepiaWeight);
     on<ToggleNavigationZonesEvent>(onToggleNavigationZones);
+    on<UpdateNavigationZonesWidthEvent>(onUpdateNavigationZonesWidth);
 
     // Download
     on<DownloadPdfEvent>(onDownloadPdf);
@@ -62,6 +66,21 @@ class PdfReaderBloc extends Bloc<PdfReaderEvent, PdfReaderState>
     on<ToggleHighlightPanelEvent>(onToggleHighlightPanel);
     on<SetSelectedTextEvent>(onSetSelectedText);
     on<ClearSelectedTextEvent>(onClearSelectedText);
+    on<CheckDefinitionEvent>(_onCheckDefinition);
+  }
+
+  Future<void> _onCheckDefinition(
+    CheckDefinitionEvent event,
+    Emitter<PdfReaderState> emit,
+  ) async {
+    final cleanedTerm = TermRegexEngine.extractCoreRoot(event.selectedText);
+    if (cleanedTerm.length < 3) {
+      emit(state.copyWith(isDefinitionAvailable: false));
+      return;
+    }
+
+    final definitionData = await _lexiconRepository.getDefinition(cleanedTerm);
+    emit(state.copyWith(isDefinitionAvailable: definitionData != null));
   }
 
   @override
@@ -112,8 +131,11 @@ class PdfReaderSummarySuccess extends PdfReaderState {
         isSummarizing: false,
         highlights: state.highlights,
         isHighlightPanelOpen: state.isHighlightPanelOpen,
+        isDefinitionAvailable: state.isDefinitionAvailable,
         isSepiaModeEnabled: state.isSepiaModeEnabled,
+        sepiaWeight: state.sepiaWeight,
         isNavigationZonesEnabled: state.isNavigationZonesEnabled,
+        navigationZonesWidth: state.navigationZonesWidth,
       );
 }
 
@@ -137,7 +159,10 @@ class PdfReaderSummaryFailure extends PdfReaderState {
         isSummarizing: false,
         highlights: state.highlights,
         isHighlightPanelOpen: state.isHighlightPanelOpen,
+        isDefinitionAvailable: state.isDefinitionAvailable,
         isSepiaModeEnabled: state.isSepiaModeEnabled,
+        sepiaWeight: state.sepiaWeight,
         isNavigationZonesEnabled: state.isNavigationZonesEnabled,
+        navigationZonesWidth: state.navigationZonesWidth,
       );
 }

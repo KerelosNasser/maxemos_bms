@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../data/models/book.dart';
 import '../../core/theme/vintage_theme.dart';
 import '../bloc/pdf_reader_bloc.dart';
@@ -127,48 +126,69 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         children: [
           // === PDF Viewer (from cached file) ===
           Positioned.fill(
-            child: ColorFiltered(
-              colorFilter: state.isSepiaModeEnabled
-                  ? const ColorFilter.matrix([
-                      0.393, 0.769, 0.189, 0, 0, // Red
-                      0.349, 0.686, 0.168, 0, 0, // Green
-                      0.272, 0.534, 0.131, 0, 0, // Blue
-                      0, 0, 0, 1, 0, // Alpha
-                    ])
-                  : const ColorFilter.mode(
-                      Colors.transparent,
-                      BlendMode.multiply,
+            child: Builder(
+              builder: (context) {
+                final w = state.sepiaWeight;
+                return ColorFiltered(
+                  colorFilter: state.isSepiaModeEnabled
+                      ? ColorFilter.matrix([
+                          0.393 * w + 1.0 * (1 - w),
+                          0.769 * w,
+                          0.189 * w,
+                          0,
+                          0,
+                          0.349 * w,
+                          0.686 * w + 1.0 * (1 - w),
+                          0.168 * w,
+                          0,
+                          0,
+                          0.272 * w,
+                          0.534 * w,
+                          0.131 * w + 1.0 * (1 - w),
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                        ])
+                      : const ColorFilter.mode(
+                          Colors.transparent,
+                          BlendMode.multiply,
+                        ),
+                  child: PdfViewer.file(
+                    state.pdfFilePath!,
+                    controller: bloc.pdfController,
+                    params: PdfViewerParams(
+                      backgroundColor: VintageTheme.inkDark,
+                      onViewerReady: (document, controller) {
+                        bloc.initSearcher(document, controller);
+                      },
+                      pagePaintCallbacks: [
+                        if (bloc.textSearcher != null)
+                          bloc.textSearcher!.pageTextMatchPaintCallback,
+                      ],
+                      textSelectionParams: PdfTextSelectionParams(
+                        enabled: true,
+                        onTextSelectionChange: (selections) async {
+                          final text = await selections.getSelectedText();
+                          if (text.isNotEmpty) {
+                            bloc.add(
+                              SetSelectedTextEvent(
+                                text: text,
+                                pageNumber: bloc.pdfController.pageNumber ?? 1,
+                              ),
+                            );
+                          } else {
+                            bloc.add(ClearSelectedTextEvent());
+                          }
+                        },
+                      ),
                     ),
-              child: PdfViewer.file(
-                state.pdfFilePath!,
-                controller: bloc.pdfController,
-                params: PdfViewerParams(
-                  backgroundColor: VintageTheme.inkDark,
-                  onViewerReady: (document, controller) {
-                    bloc.initSearcher(document, controller);
-                  },
-                  pagePaintCallbacks: [
-                    if (bloc.textSearcher != null)
-                      bloc.textSearcher!.pageTextMatchPaintCallback,
-                  ],
-                  textSelectionParams: PdfTextSelectionParams(
-                    enabled: true,
-                    onTextSelectionChange: (selections) async {
-                      final text = await selections.getSelectedText();
-                      if (text.isNotEmpty) {
-                        bloc.add(
-                          SetSelectedTextEvent(
-                            text: text,
-                            pageNumber: bloc.pdfController.pageNumber ?? 1,
-                          ),
-                        );
-                      } else {
-                        bloc.add(ClearSelectedTextEvent());
-                      }
-                    },
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
 
@@ -178,7 +198,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               left: 0,
               top: kToolbarHeight + topPadding,
               bottom: 80,
-              width: MediaQuery.of(context).size.width * 0.15,
+              width:
+                  MediaQuery.of(context).size.width *
+                  state.navigationZonesWidth,
               child: GestureDetector(
                 onTap: () {
                   final current = bloc.pdfController.pageNumber ?? 1;
@@ -193,7 +215,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               right: 0,
               top: kToolbarHeight + topPadding,
               bottom: 80,
-              width: MediaQuery.of(context).size.width * 0.15,
+              width:
+                  MediaQuery.of(context).size.width *
+                  state.navigationZonesWidth,
               child: GestureDetector(
                 onTap: () {
                   final current = bloc.pdfController.pageNumber ?? 1;
@@ -298,7 +322,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                                 ),
                               ),
                             ),
-                          if (isSingleWord)
+                          if (isSingleWord && state.isDefinitionAvailable)
                             Padding(
                               padding: const EdgeInsets.only(left: 8.0),
                               child: FloatingActionButton.extended(
@@ -329,7 +353,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                                 ),
                               ),
                             ),
-                          if (refs.isEmpty && !isSingleWord)
+                          if (refs.isEmpty &&
+                              !(isSingleWord && state.isDefinitionAvailable))
                             const SizedBox.shrink(),
                         ],
                       );

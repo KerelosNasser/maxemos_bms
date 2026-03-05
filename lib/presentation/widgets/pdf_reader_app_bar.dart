@@ -5,7 +5,6 @@ import '../bloc/pdf_reader_bloc.dart';
 import '../bloc/pdf_reader_event.dart';
 import 'pdf_preferences_sheet.dart';
 
-
 class PdfReaderAppBarContent extends StatelessWidget {
   final String bookId;
   final String bookTitle;
@@ -58,7 +57,7 @@ class PdfReaderAppBarContent extends StatelessWidget {
                 showModalBottomSheet(
                   context: context,
                   backgroundColor: Colors.transparent,
-                  builder: (_) => PdfPreferencesSheet(bloc: bloc, state: state),
+                  builder: (_) => PdfPreferencesSheet(bloc: bloc),
                 );
               },
               tooltip: 'خيارات القراءة',
