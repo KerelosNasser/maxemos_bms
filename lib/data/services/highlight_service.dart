@@ -74,6 +74,46 @@ class HighlightService {
     return allHighlights;
   }
 
+  /// Updates a specific highlight globally by replacing it in its corresponding book's list.
+  static Future<void> updateHighlightGlobal(Highlight updatedHighlight) async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs
+        .getKeys()
+        .where((k) => k.startsWith(_keyPrefix))
+        .toList();
+
+    for (String key in keys) {
+      final bookId = key.replaceFirst(_keyPrefix, '');
+      final highlights = await getHighlights(bookId);
+      final index = highlights.indexWhere((h) => h.id == updatedHighlight.id);
+      if (index != -1) {
+        highlights[index] = updatedHighlight;
+        await _persist(bookId, highlights);
+        return; // found and replaced
+      }
+    }
+  }
+
+  /// Removes a specific highlight globally by searching across all books.
+  static Future<void> removeHighlightGlobal(String highlightId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs
+        .getKeys()
+        .where((k) => k.startsWith(_keyPrefix))
+        .toList();
+
+    for (String key in keys) {
+      final bookId = key.replaceFirst(_keyPrefix, '');
+      final highlights = await getHighlights(bookId);
+      final index = highlights.indexWhere((h) => h.id == highlightId);
+      if (index != -1) {
+        highlights.removeAt(index);
+        await _persist(bookId, highlights);
+        return; // found and removed
+      }
+    }
+  }
+
   /// Extracts unique sermon folder/tag names used across all highlights.
   static Future<List<String>> getSermonFolders() async {
     final allHighlights = await getAllHighlights();

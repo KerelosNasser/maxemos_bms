@@ -216,4 +216,46 @@ $excerptText
       throw Exception('Failed to answer user question via Gemini AI: $e');
     }
   }
+
+  static Future<String> askGeneralBookQuestion({
+    required String bookTitle,
+    required List<String> userHighlights,
+    required String question,
+  }) async {
+    final highlightsContext = userHighlights.isEmpty
+        ? 'لا توجد علامات مرجعية سابقة للمستخدم في هذا الكتاب.'
+        : 'العلامات المرجعية واقتباسات المستخدم من الكتاب:\n${userHighlights.map((h) => "- \"$h\"").join("\n")}';
+
+    final prompt =
+        '''
+أنت أب قبطي أرثوذكسي محترم وذو معرفة واسعة.
+القارئ يسألك سؤالاً عاماً عن كتاب "$bookTitle".
+لديك المعرفة العميقة بأساسيات الإيمان القبطي الأرثوذكسي، والكتاب المقدس (ترجمة فاندايك)، وتفاصيل هذا الكتاب.
+
+الرجاء استخدام الاقتباسات التالية التي حددها المستخدم من الكتاب لفهم ما يركز عليه القارئ ومساعدتك في توجيه الإجابة (إن كانت ذات صلة):
+$highlightsContext
+
+سؤال المستخدم:
+"$question"
+
+أجب بوضوح وبأسلوب روحي رصين، معتمداً على تعاليم الكنيسة القبطية الأرثوذكسية الخالية من الأخطاء العقائدية.
+يجب أن تكون إجابتك باللغة العربية 100%.
+''';
+
+    try {
+      final responseText = await _generateWithFallback(
+        prompt,
+        const Duration(seconds: 45),
+      );
+
+      return responseText.isEmpty
+          ? 'عذراً، لم أتمكن من إيجاد إجابة.'
+          : responseText;
+    } catch (e) {
+      logger.e('Failed to answer general book question via Gemini AI: $e');
+      throw Exception(
+        'Failed to answer general book question via Gemini AI: $e',
+      );
+    }
+  }
 }

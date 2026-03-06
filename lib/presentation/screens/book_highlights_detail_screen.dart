@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/vintage_theme.dart';
 import '../../data/models/highlight.dart';
+import '../../data/services/highlight_service.dart';
 
-class BookHighlightsDetailScreen extends StatelessWidget {
+class BookHighlightsDetailScreen extends StatefulWidget {
   final String bookTitle;
   final List<Highlight> highlights;
 
@@ -13,12 +14,205 @@ class BookHighlightsDetailScreen extends StatelessWidget {
   });
 
   @override
+  State<BookHighlightsDetailScreen> createState() =>
+      _BookHighlightsDetailScreenState();
+}
+
+class _BookHighlightsDetailScreenState
+    extends State<BookHighlightsDetailScreen> {
+  late List<Highlight> _highlights;
+
+  @override
+  void initState() {
+    super.initState();
+    _highlights = List.from(widget.highlights);
+  }
+
+  Future<void> _editNote(Highlight highlight, int index) async {
+    final noteController = TextEditingController(text: highlight.note ?? '');
+    final newNote = await showDialog<String>(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: VintageTheme.parchmentLight,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: VintageTheme.vintageGold.withOpacity(0.5)),
+          ),
+          title: const Text(
+            'تعديل الملاحظة',
+            style: TextStyle(
+              fontFamily: 'Amiri',
+              color: VintageTheme.inkDark,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: TextField(
+            controller: noteController,
+            maxLines: 4,
+            style: const TextStyle(
+              fontFamily: 'Amiri',
+              fontSize: 18,
+              color: VintageTheme.inkDark,
+            ),
+            decoration: InputDecoration(
+              hintText: 'اكتب ملاحظتك هنا...',
+              hintStyle: TextStyle(
+                fontFamily: 'Amiri',
+                color: VintageTheme.inkDark.withOpacity(0.5),
+              ),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.5),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: VintageTheme.vintageGold),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: VintageTheme.crimsonRed),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text(
+                'إلغاء',
+                style: TextStyle(fontFamily: 'Amiri', color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: VintageTheme.crimsonRed,
+                foregroundColor: VintageTheme.parchmentLight,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => Navigator.pop(context, noteController.text),
+              child: const Text(
+                'حفظ',
+                style: TextStyle(
+                  fontFamily: 'Amiri',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (newNote != null && newNote != highlight.note) {
+      final updatedHighlight = highlight.copyWith(
+        note: newNote.trim().isEmpty ? null : newNote.trim(),
+      );
+      setState(() {
+        _highlights[index] = updatedHighlight;
+      });
+      await HighlightService.updateHighlightGlobal(updatedHighlight);
+    }
+  }
+
+  Future<void> _deleteHighlight(Highlight highlight, int index) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: VintageTheme.parchmentLight,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: VintageTheme.vintageGold.withOpacity(0.5)),
+          ),
+          title: const Text(
+            'حذف العلامة المررجعية',
+            style: TextStyle(
+              fontFamily: 'Amiri',
+              color: VintageTheme.inkDark,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'هل أنت متأكد من حذف هذه العلامة المرجعية؟ لا يمكن التراجع عن هذا الإجراء.',
+            style: TextStyle(
+              fontFamily: 'Amiri',
+              fontSize: 18,
+              color: VintageTheme.inkDark,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(
+                'إلغاء',
+                style: TextStyle(fontFamily: 'Amiri', color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'حذف',
+                style: TextStyle(
+                  fontFamily: 'Amiri',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() {
+        _highlights.removeAt(index);
+      });
+      await HighlightService.removeHighlightGlobal(highlight.id);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_highlights.isEmpty) {
+      return Scaffold(
+        backgroundColor: VintageTheme.inkDark,
+        appBar: AppBar(
+          title: Text(
+            widget.bookTitle,
+            style: const TextStyle(fontFamily: 'Amiri', fontSize: 20),
+          ),
+          backgroundColor: VintageTheme.inkDark,
+          elevation: 0,
+          centerTitle: true,
+        ),
+        body: const Center(
+          child: Text(
+            'لا توجد علامات مرجعية في هذا الكتاب.',
+            style: TextStyle(
+              fontFamily: 'Amiri',
+              fontSize: 18,
+              color: VintageTheme.parchmentLight,
+            ),
+            textDirection: TextDirection.rtl,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: VintageTheme.inkDark,
       appBar: AppBar(
         title: Text(
-          bookTitle,
+          widget.bookTitle,
           style: const TextStyle(fontFamily: 'Amiri', fontSize: 20),
         ),
         backgroundColor: VintageTheme.inkDark,
@@ -37,9 +231,9 @@ class BookHighlightsDetailScreen extends StatelessWidget {
         ),
         child: ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: highlights.length,
+          itemCount: _highlights.length,
           itemBuilder: (context, index) {
-            final h = highlights[index];
+            final h = _highlights[index];
             return Card(
               color: VintageTheme.parchmentLight,
               margin: const EdgeInsets.only(bottom: 16),
@@ -92,10 +286,30 @@ class BookHighlightsDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    // Page indicator Footer
+                    // Action Buttons & Page Indicator Footer
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: VintageTheme.inkDark,
+                              ),
+                              tooltip: 'تعديل الملاحظة',
+                              onPressed: () => _editNote(h, index),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete,
+                                color: Colors.red.shade700,
+                              ),
+                              tooltip: 'حذف العلامة',
+                              onPressed: () => _deleteHighlight(h, index),
+                            ),
+                          ],
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
