@@ -94,7 +94,6 @@ class HighlightService {
     }
   }
 
-  /// Removes a specific highlight globally by searching across all books.
   static Future<void> removeHighlightGlobal(String highlightId) async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs
@@ -109,12 +108,11 @@ class HighlightService {
       if (index != -1) {
         highlights.removeAt(index);
         await _persist(bookId, highlights);
-        return; // found and removed
+        return;
       }
     }
   }
 
-  /// Extracts unique sermon folder/tag names used across all highlights.
   static Future<List<String>> getSermonFolders() async {
     final allHighlights = await getAllHighlights();
     final Set<String> folders = {};

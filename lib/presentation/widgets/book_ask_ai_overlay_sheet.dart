@@ -86,7 +86,6 @@ class _BookAskAiOverlaySheetState extends State<BookAskAiOverlaySheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Title
                           const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

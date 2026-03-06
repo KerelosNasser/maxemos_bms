@@ -14,24 +14,158 @@ import '../widgets/book_card.dart';
 import '../bloc/dashboard_cubit.dart';
 import 'user_library_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  String _selectedCategory = 'الكل';
+
   List<String> _extractCategories(List<Book> books) {
-    Set<String> categorySet = {};
+    Map<String, int> categoryCounts = {};
     for (var book in books) {
       if (book.categories.isNotEmpty) {
-        categorySet.addAll(
-          book.categories.map((e) => e.trim()).where((e) => e.isNotEmpty),
-        );
+        for (var cat in book.categories) {
+          final c = cat.trim();
+          if (c.isNotEmpty) {
+            categoryCounts[c] = (categoryCounts[c] ?? 0) + 1;
+          }
+        }
       } else {
-        categorySet.add('Uncategorized');
+        categoryCounts['غير مصنف'] = (categoryCounts['غير مصنف'] ?? 0) + 1;
       }
     }
-    List<String> categories = ['All'];
-    var sortedCategories = categorySet.toList()..sort();
+
+    // Sort by count descending, then alphabetically
+    var sortedCategories = categoryCounts.keys.toList()
+      ..sort((a, b) {
+        int cmp = categoryCounts[b]!.compareTo(categoryCounts[a]!);
+        if (cmp == 0) return a.compareTo(b);
+        return cmp;
+      });
+
+    sortedCategories.remove('غير مصنف');
+
+    List<String> categories = ['الكل'];
+    if (categoryCounts.containsKey('غير مصنف')) {
+      categories.add('غير مصنف');
+    }
     categories.addAll(sortedCategories);
     return categories;
+  }
+
+  List<String> _getVisibleCategories(List<String> allCategories) {
+    List<String> visible = ['الكل'];
+    if (allCategories.contains('غير مصنف')) {
+      visible.add('غير مصنف');
+    }
+
+    // Ensure selected is visible
+    if (!visible.contains(_selectedCategory) &&
+        allCategories.contains(_selectedCategory)) {
+      visible.add(_selectedCategory);
+    }
+
+    // Fill up to 5 categories using the frequency-sorted list
+    for (var cat in allCategories) {
+      if (visible.length >= 5) break;
+      if (!visible.contains(cat)) {
+        visible.add(cat);
+      }
+    }
+    return visible;
+  }
+
+  void _showAllCategoriesSheet(List<String> allCategories) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: VintageTheme.parchmentLight,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 16),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: VintageTheme.inkFaded.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Text(
+                'كل التصنيفات',
+                style: TextStyle(
+                  fontFamily: 'Amiri',
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: VintageTheme.inkDark,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  children: [
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      textDirection: TextDirection.rtl,
+                      children: allCategories.map((cat) {
+                        final isSelected = cat == _selectedCategory;
+                        return ChoiceChip(
+                          label: Text(
+                            cat,
+                            style: TextStyle(
+                              fontFamily: 'Amiri',
+                              color: isSelected
+                                  ? VintageTheme.parchmentLight
+                                  : VintageTheme.inkDark,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          selected: isSelected,
+                          selectedColor: VintageTheme.crimsonRed,
+                          backgroundColor: Colors.white,
+                          side: BorderSide(
+                            color: isSelected
+                                ? VintageTheme.crimsonRed
+                                : VintageTheme.vintageGold,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => _selectedCategory = cat);
+                              Navigator.pop(context);
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _pickAndUploadPDF(BuildContext context) async {
@@ -120,102 +254,101 @@ class DashboardScreen extends StatelessWidget {
 
           final cachedIds = state.cachedBookIds;
           final isOffline = state.isOffline;
-
           final categories = _extractCategories(state.books);
 
-          return DefaultTabController(
-            length: categories.length,
-            child: _buildScaffold(
-              context,
-              TabBarView(
-                children: categories.map((category) {
-                  return BlocBuilder<DashboardCubit, String>(
-                    builder: (context, searchQuery) {
-                      List<Book> filteredBooks = state.books.where((book) {
-                        // Global Search Filter
-                        if (searchQuery.isNotEmpty) {
-                          final matchTitle = book.title.toLowerCase().contains(
-                            searchQuery.toLowerCase(),
-                          );
-                          if (!matchTitle) return false;
-                        }
+          // Reset to All if category essentially got deleted from DB sync
+          if (!categories.contains(_selectedCategory)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _selectedCategory = 'الكل');
+            });
+          }
 
-                        // Category Filter
-                        if (category == 'All') return true;
-                        if (category == 'Uncategorized') {
-                          return book.categories.isEmpty;
-                        }
-                        return book.categories.contains(category);
-                      }).toList();
+          final bodyContent = BlocBuilder<DashboardCubit, String>(
+            builder: (context, searchQuery) {
+              List<Book> filteredBooks = state.books.where((book) {
+                // Global Search Filter
+                if (searchQuery.isNotEmpty) {
+                  final matchTitle = book.title.toLowerCase().contains(
+                    searchQuery.toLowerCase(),
+                  );
+                  if (!matchTitle) return false;
+                }
 
-                      if (filteredBooks.isEmpty) {
-                        return const Center(
-                          child: Text('No tomes in this category.'),
-                        );
-                      }
+                // Category Filter
+                if (_selectedCategory == 'الكل') return true;
+                if (_selectedCategory == 'غير مصنف') {
+                  return book.categories.isEmpty;
+                }
+                return book.categories.contains(_selectedCategory);
+              }).toList();
 
-                      return RefreshIndicator(
-                        color: VintageTheme.crimsonRed,
-                        onRefresh: () async {
-                          context.read<BookBloc>().add(LoadBooksEvent());
-                          // Wait for the state to stop loading
-                          await context.read<BookBloc>().stream.firstWhere(
-                            (state) => state is! BookLoading,
+              if (filteredBooks.isEmpty) {
+                return Center(
+                  child: Text(
+                    'لا توجد كتب في هذا التصنيف.',
+                    style: TextStyle(
+                      fontFamily: 'Amiri',
+                      fontSize: 18,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                    textDirection: TextDirection.rtl,
+                  ),
+                );
+              }
+
+              return RefreshIndicator(
+                color: VintageTheme.crimsonRed,
+                onRefresh: () async {
+                  context.read<BookBloc>().add(LoadBooksEvent());
+                  await context.read<BookBloc>().stream.firstWhere(
+                    (state) => state is! BookLoading,
+                  );
+                },
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth >= 600) {
+                      int crossAxisCount = (constraints.maxWidth / 400).ceil();
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(16.0),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          mainAxisExtent:
+                              130, // Fixed height to allow dynamic elements inside ListTile
+                          crossAxisSpacing: 16.0,
+                          mainAxisSpacing: 16.0,
+                        ),
+                        itemCount: filteredBooks.length,
+                        itemBuilder: (context, index) {
+                          return BookCard(
+                            book: filteredBooks[index],
+                            isCached: cachedIds.contains(
+                              filteredBooks[index].id,
+                            ),
+                            isOffline: isOffline,
                           );
                         },
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth >= 600) {
-                              int crossAxisCount = (constraints.maxWidth / 400)
-                                  .ceil();
-                              return GridView.builder(
-                                padding: const EdgeInsets.all(16.0),
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: crossAxisCount,
-                                      mainAxisExtent:
-                                          130, // Fixed height to allow dynamic elements inside ListTile
-                                      crossAxisSpacing: 16.0,
-                                      mainAxisSpacing: 16.0,
-                                    ),
-                                itemCount: filteredBooks.length,
-                                itemBuilder: (context, index) {
-                                  return BookCard(
-                                    book: filteredBooks[index],
-                                    isCached: cachedIds.contains(
-                                      filteredBooks[index].id,
-                                    ),
-                                    isOffline: isOffline,
-                                  );
-                                },
-                              );
-                            }
-                            return ListView.builder(
-                              padding: const EdgeInsets.all(16.0),
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              itemCount: filteredBooks.length,
-                              itemBuilder: (context, index) {
-                                return BookCard(
-                                  book: filteredBooks[index],
-                                  isCached: cachedIds.contains(
-                                    filteredBooks[index].id,
-                                  ),
-                                  isOffline: isOffline,
-                                );
-                              },
-                            );
-                          },
-                        ),
                       );
-                    },
-                  );
-                }).toList(),
-              ),
-              categories,
-              state,
-            ),
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16.0),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: filteredBooks.length,
+                      itemBuilder: (context, index) {
+                        return BookCard(
+                          book: filteredBooks[index],
+                          isCached: cachedIds.contains(filteredBooks[index].id),
+                          isOffline: isOffline,
+                        );
+                      },
+                    );
+                  },
+                ),
+              );
+            },
           );
+
+          return _buildScaffold(context, bodyContent, categories, state);
         }
         return _buildScaffold(
           context,
@@ -233,6 +366,8 @@ class DashboardScreen extends StatelessWidget {
     List<String> categories,
     BookState state,
   ) {
+    final visibleCats = _getVisibleCategories(categories);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('مدرسة الروح القدس'),
@@ -259,12 +394,77 @@ class DashboardScreen extends StatelessWidget {
             ? null
             : PreferredSize(
                 preferredSize: const Size.fromHeight(kToolbarHeight),
-                child: TabBar(
-                  isScrollable: true,
-                  indicatorColor: VintageTheme.crimsonRed,
-                  labelColor: VintageTheme.crimsonRed,
-                  unselectedLabelColor: Colors.white,
-                  tabs: categories.map((cat) => Tab(text: cat)).toList(),
+                child: Container(
+                  height: kToolbarHeight,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  alignment: Alignment.center,
+                  child: Row(
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      Expanded(
+                        child: Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: visibleCats.length,
+                            separatorBuilder: (context, _) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final cat = visibleCats[index];
+                              final isSelected = cat == _selectedCategory;
+                              return Center(
+                                child: ChoiceChip(
+                                  label: Text(
+                                    cat,
+                                    style: TextStyle(
+                                      fontFamily: 'Amiri',
+                                      color: isSelected
+                                          ? VintageTheme.parchmentLight
+                                          : VintageTheme.inkDark,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                  selected: isSelected,
+                                  selectedColor: VintageTheme.crimsonRed,
+                                  backgroundColor: VintageTheme.parchmentLight
+                                      .withOpacity(0.9),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? VintageTheme.crimsonRed
+                                        : VintageTheme.vintageGold.withOpacity(
+                                            0.5,
+                                          ),
+                                  ),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setState(() => _selectedCategory = cat);
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: VintageTheme.parchmentLight.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.more_horiz,
+                            color: VintageTheme.vintageGold,
+                          ),
+                          onPressed: () => _showAllCategoriesSheet(categories),
+                          tooltip: 'عرض كل التصنيفات',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
       ),

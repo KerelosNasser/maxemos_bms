@@ -5,8 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfrx/pdfrx.dart';
-import 'package:tesseract_ocr/tesseract_ocr.dart';
-import 'package:tesseract_ocr/ocr_engine_config.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import 'arabic_text_normalizer.dart';
 import 'pdf/ocr_match.dart';
@@ -16,7 +15,7 @@ import 'pdf/pdf_search_painter.dart';
 /// PDF search with Arabic support.
 ///
 /// Path 1 – well-encoded PDFs  → pdfrx [PdfTextSearcher] + Arabic regex.
-/// Path 2 – garbled/image PDFs → Tesseract OCR (free, offline, zero quota)
+/// Path 2 – garbled/image PDFs → Google ML Kit Arabic (native accurate OCR)
 ///          with pdfrx fragment Y-positions for accurate highlighting.
 class PdfSearchIndexer {
   final PdfViewerController controller;
@@ -350,8 +349,8 @@ class PdfSearchIndexer {
     maxY ??= page.height * 0.88;
     minY ??= page.height * 0.12;
 
-    // ── Step 2: Tesseract OCR ──
-    final ocrText = await _tesseractPage(page);
+    // ── Step 2: Native ML Kit OCR ──
+    final ocrText = await _mlkitPage(page);
     if (ocrText.isEmpty) return null;
 
     return PageOcrData(
@@ -394,10 +393,10 @@ class PdfSearchIndexer {
     return data.textTopY - ratio * (data.textTopY - data.textBottomY);
   }
 
-  /// Render page → Tesseract OCR → return Arabic text.
-  Future<String> _tesseractPage(PdfPage page) async {
+  /// Render page → ML Kit OCR → return Arabic text.
+  Future<String> _mlkitPage(PdfPage page) async {
     try {
-      // 2x is enough for Tesseract and faster than 3x
+      // 2x is enough for ML Kit and faster than 3x
       final rendered = await page.render(
         fullWidth: page.width * 2,
         fullHeight: page.height * 2,
@@ -413,18 +412,25 @@ class PdfSearchIndexer {
         final file = File('${dir.path}/_ocr_${page.pageNumber}.png');
         await file.writeAsBytes(Uint8List.view(bytes.buffer), flush: true);
 
-        final text = await TesseractOcr.extractText(
-          file.path,
-          config: const OCRConfig(language: 'ara'),
+        final inputImage = InputImage.fromFilePath(file.path);
+        final textRecognizer = TextRecognizer(
+          script: TextRecognitionScript.arabic,
         );
 
+        final RecognizedText recognizedText = await textRecognizer.processImage(
+          inputImage,
+        );
+        final text = recognizedText.text;
+
+        await textRecognizer.close();
         file.delete().ignore();
+
         return text;
       } finally {
         rendered.dispose();
       }
     } catch (e) {
-      debugPrint('⚠ Tesseract error p${page.pageNumber}: $e');
+      debugPrint('⚠ ML Kit error p${page.pageNumber}: $e');
       return '';
     }
   }
