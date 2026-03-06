@@ -8,6 +8,7 @@ class Highlight {
   final DateTime createdAt;
   final String? note;
   final String? folderId;
+  final String? bookTitle;
 
   Highlight({
     String? id,
@@ -17,6 +18,7 @@ class Highlight {
     DateTime? createdAt,
     this.note,
     this.folderId,
+    this.bookTitle,
   }) : id = id ?? const Uuid().v4(),
        createdAt = createdAt ?? DateTime.now();
 
@@ -29,6 +31,7 @@ class Highlight {
       createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
       note: json['note'] as String?,
       folderId: json['folderId'] as String?,
+      bookTitle: json['bookTitle'] as String?,
     );
   }
 
@@ -41,6 +44,7 @@ class Highlight {
       'createdAt': createdAt.toIso8601String(),
       'note': note,
       'folderId': folderId,
+      'bookTitle': bookTitle,
     };
   }
 
@@ -52,6 +56,7 @@ class Highlight {
     DateTime? createdAt,
     String? note,
     String? folderId,
+    String? bookTitle,
   }) {
     return Highlight(
       id: id ?? this.id,
@@ -61,6 +66,7 @@ class Highlight {
       createdAt: createdAt ?? this.createdAt,
       note: note ?? this.note,
       folderId: folderId ?? this.folderId,
+      bookTitle: bookTitle ?? this.bookTitle,
     );
   }
 

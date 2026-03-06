@@ -12,6 +12,7 @@ import '../../core/services/notification_service.dart';
 import '../widgets/dashboard_search_bar.dart';
 import '../widgets/book_card.dart';
 import '../bloc/dashboard_cubit.dart';
+import 'user_library_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -236,6 +237,16 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('مدرسة الروح القدس'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.local_library),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const UserLibraryScreen()),
+              );
+            },
+            tooltip: 'مكتبة المستخدم',
+          ),
           IconButton(
             icon: const Icon(Icons.sync),
             onPressed: () {

@@ -281,7 +281,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  HighlightActionButton(bookId: book.id),
+                  HighlightActionButton(bookId: book.id, bookTitle: book.title),
                   Builder(
                     builder: (btnContext) {
                       final text = state.selectedText!;

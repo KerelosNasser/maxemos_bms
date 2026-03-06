@@ -16,18 +16,42 @@ class AskAiMessage extends Equatable {
 }
 
 class AskAiState extends Equatable {
+  final String? sessionId;
+  final String? bookTitle;
+  final String? selectedText;
   final List<AskAiMessage> messages;
   final bool isLoading;
 
-  const AskAiState({this.messages = const [], this.isLoading = false});
+  const AskAiState({
+    this.sessionId,
+    this.bookTitle,
+    this.selectedText,
+    this.messages = const [],
+    this.isLoading = false,
+  });
 
-  AskAiState copyWith({List<AskAiMessage>? messages, bool? isLoading}) {
+  AskAiState copyWith({
+    String? sessionId,
+    String? bookTitle,
+    String? selectedText,
+    List<AskAiMessage>? messages,
+    bool? isLoading,
+  }) {
     return AskAiState(
+      sessionId: sessionId ?? this.sessionId,
+      bookTitle: bookTitle ?? this.bookTitle,
+      selectedText: selectedText ?? this.selectedText,
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
     );
   }
 
   @override
-  List<Object?> get props => [messages, isLoading];
+  List<Object?> get props => [
+    sessionId,
+    bookTitle,
+    selectedText,
+    messages,
+    isLoading,
+  ];
 }

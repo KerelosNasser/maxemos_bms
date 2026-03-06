@@ -9,8 +9,13 @@ import 'sermon_folder_selection_sheet.dart';
 /// Parent is responsible for Positioned wrapping inside a Stack.
 class HighlightActionButton extends StatelessWidget {
   final String bookId;
+  final String bookTitle;
 
-  const HighlightActionButton({super.key, required this.bookId});
+  const HighlightActionButton({
+    super.key,
+    required this.bookId,
+    required this.bookTitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,10 +36,14 @@ class HighlightActionButton extends StatelessWidget {
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (_) => SermonFolderSelectionSheet(
-              bookId: bookId,
-              pageNumber: state.selectedPageNumber ?? 1,
-              selectedText: state.selectedText!,
+            builder: (_) => BlocProvider.value(
+              value: bloc,
+              child: SermonFolderSelectionSheet(
+                bookId: bookId,
+                bookTitle: bookTitle,
+                pageNumber: state.selectedPageNumber ?? 1,
+                selectedText: state.selectedText!,
+              ),
             ),
           );
         },
